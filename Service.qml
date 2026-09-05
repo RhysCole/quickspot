@@ -233,8 +233,8 @@ QtObject {
     if (String(query).trim() === "") { callback([], ""); return }
 
     withToken(function(token, error) {
-      if (error) { callback([], error); return }
       if (serial !== root.searchSerial) return
+      if (error) { callback([], error); return }
 
       var request = new XMLHttpRequest()
       request.open("GET", Api.searchUrl(query, 20))
