@@ -276,6 +276,27 @@ TestCase {
   function test_parseTokenResponseRejectsGarbage() {
     verify(!Auth.parseTokenResponse("<html>nope</html>", 0).ok)
   }
+
+  function test_parseCallbackRequestLineMalformedPercentEncoding() {
+    verify(!Auth.parseCallbackRequestLine(
+      "GET /callback?code=abc%zzdef&state=xyz HTTP/1.1").ok)
+  }
+
+  function test_parseCallbackRequestLineNoCodeNoError() {
+    var result = Auth.parseCallbackRequestLine("GET /callback?state=xyz HTTP/1.1")
+    verify(!result.ok)
+    compare(result.error, "No authorization code in callback")
+  }
+
+  function test_parseTokenResponseRejectsJsonNull() {
+    verify(!Auth.parseTokenResponse("null", 0).ok)
+  }
+
+  function test_parseTokenResponseRejectsJsonScalar() {
+    verify(!Auth.parseTokenResponse("42", 0).ok)
+    verify(!Auth.parseTokenResponse("true", 0).ok)
+    verify(!Auth.parseTokenResponse("\"string\"", 0).ok)
+  }
 }
 ```
 
@@ -337,7 +358,14 @@ function parseCallbackRequestLine(line) {
   for (var i = 0; i < pairs.length; i++) {
     var pair = pairs[i].split("=")
     if (pair.length !== 2) continue
-    query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1].replace(/\+/g, "%2B"))
+    // This input is an HTTP request line off a loopback listener, so a
+    // malformed escape is reachable by any local probe. decodeURIComponent
+    // throws on one; the module's contract is to return, never throw.
+    try {
+      query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1].replace(/\+/g, "%2B"))
+    } catch (e) {
+      return { ok: false, code: "", state: "", error: "Malformed query string" }
+    }
   }
 
   if (query.error) return { ok: false, code: "", state: "", error: query.error }
@@ -352,6 +380,10 @@ function parseTokenResponse(text, nowMs) {
   } catch (e) {
     return { ok: false, accessToken: "", refreshToken: "", expiresAt: 0, error: "Malformed token response" }
   }
+  // A body of literal `null` parses successfully, and `null.error` throws.
+  // Every JSON scalar reaches this line, so guard before the first access.
+  if (typeof payload !== "object" || payload === null)
+    return { ok: false, accessToken: "", refreshToken: "", expiresAt: 0, error: "Malformed token response" }
   if (payload.error)
     return { ok: false, accessToken: "", refreshToken: "", expiresAt: 0, error: String(payload.error) }
   if (!payload.access_token)
@@ -383,7 +415,7 @@ function successResponse() {
 - [ ] **Step 4: Run the tests and make sure they pass**
 
 Run: `./run-tests.sh`
-Expected: PASS — all 11 `Auth` tests green alongside the harness test.
+Expected: PASS — all 16 `Auth` tests green alongside the harness test.
 
 - [ ] **Step 5: Write the PKCE script**
 
