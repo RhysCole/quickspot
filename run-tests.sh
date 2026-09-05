@@ -8,4 +8,5 @@ if [[ ! -x $runner ]]; then
 fi
 
 root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+export QML_XHR_ALLOW_FILE_READ=1
 exec "$runner" -input "$root/tests"

@@ -1,0 +1,46 @@
+{
+  "tracks": {
+    "items": [
+      {
+        "id": "trk1",
+        "uri": "spotify:track:trk1",
+        "name": "Midnight City",
+        "duration_ms": 243000,
+        "artists": [{ "name": "M83" }],
+        "album": {
+          "name": "Hurry Up, We're Dreaming",
+          "uri": "spotify:album:alb1",
+          "images": [
+            { "url": "https://example.invalid/large.jpg", "height": 640 },
+            { "url": "https://example.invalid/medium.jpg", "height": 300 },
+            { "url": "https://example.invalid/small.jpg", "height": 64 }
+          ]
+        }
+      },
+      {
+        "id": "trk2",
+        "uri": "spotify:track:trk2",
+        "name": "Midnight City",
+        "duration_ms": 243000,
+        "artists": [{ "name": "M83" }],
+        "album": {
+          "name": "Hurry Up, We're Dreaming (Deluxe)",
+          "uri": "spotify:album:alb2",
+          "images": []
+        }
+      },
+      {
+        "id": "trk3",
+        "uri": "spotify:track:trk3",
+        "name": "Midnight City - Remix",
+        "duration_ms": 381000,
+        "artists": [{ "name": "M83" }, { "name": "Eric Prydz" }],
+        "album": {
+          "name": "Remixes",
+          "uri": "spotify:album:alb3",
+          "images": [{ "url": "https://example.invalid/remix.jpg", "height": 300 }]
+        }
+      }
+    ]
+  }
+}
