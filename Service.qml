@@ -1,8 +1,11 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Mpris
 
 import "Auth.js" as Auth
+import "Api.js" as Api
+import "Search.js" as Search
 
 QtObject {
   id: root
@@ -218,5 +221,107 @@ QtObject {
       if (root.refreshToken !== "" && !root.tokenValid() && !root.refreshRequest.active)
         root.refreshRequest.start()
     }
+  }
+
+  property int searchSerial: 0
+
+  function cancelSearch() { searchSerial++ }
+
+  function search(query, callback) {
+    searchSerial++
+    var serial = searchSerial
+    if (String(query).trim() === "") { callback([], ""); return }
+
+    withToken(function(token, error) {
+      if (error) { callback([], error); return }
+      if (serial !== root.searchSerial) return
+
+      var request = new XMLHttpRequest()
+      request.open("GET", Api.searchUrl(query, 20))
+      request.setRequestHeader("Authorization", "Bearer " + token)
+      request.onreadystatechange = function() {
+        if (request.readyState !== XMLHttpRequest.DONE) return
+        if (serial !== root.searchSerial) return
+        if (request.status === 200) { callback(Search.toRows(request.responseText), ""); return }
+        var classified = Api.classifyError(request.status, request.responseText)
+        if (classified.kind === "unauthorized") root.clearAuth("Spotify sign-in expired, sign in again")
+        callback([], classified.message)
+      }
+      request.send()
+    })
+  }
+
+  // Resolves the active Connect device and hands it to `action(token, deviceId)`.
+  // An empty device id means nothing is active, and each caller decides whether
+  // an MPRIS fallback applies to its verb.
+  function withDevice(action, onError) {
+    withToken(function(token, error) {
+      if (error) { onError(error); return }
+      var request = new XMLHttpRequest()
+      request.open("GET", Api.devicesUrl())
+      request.setRequestHeader("Authorization", "Bearer " + token)
+      request.onreadystatechange = function() {
+        if (request.readyState !== XMLHttpRequest.DONE) return
+        if (request.status !== 200) {
+          var classified = Api.classifyError(request.status, request.responseText)
+          if (classified.kind === "unauthorized") root.clearAuth("Spotify sign-in expired, sign in again")
+          onError(classified.message)
+          return
+        }
+        action(token, Api.activeDeviceId(request.responseText))
+      }
+      request.send()
+    })
+  }
+
+  function sendPlayback(method, url, body, token, callback) {
+    var request = new XMLHttpRequest()
+    request.open(method, url)
+    request.setRequestHeader("Authorization", "Bearer " + token)
+    request.setRequestHeader("Content-Type", "application/json")
+    request.onreadystatechange = function() {
+      if (request.readyState !== XMLHttpRequest.DONE) return
+      if (request.status >= 200 && request.status < 300) { callback(""); return }
+      var classified = Api.classifyError(request.status, request.responseText)
+      if (classified.kind === "unauthorized") root.clearAuth("Spotify sign-in expired, sign in again")
+      callback(classified.message)
+    }
+    request.send(body === "" ? undefined : body)
+  }
+
+  // The local librespot daemon, when it is running.
+  function localPlayer() {
+    var players = Mpris.players.values
+    for (var i = 0; i < players.length; i++)
+      if (String(players[i].dbusName || "").indexOf("OmarchySpotify") !== -1) return players[i]
+    return null
+  }
+
+  function playTrack(row, callback) {
+    withDevice(function(token, deviceId) {
+      if (deviceId === "") {
+        var player = root.localPlayer()
+        if (player) { player.openUri(row.uri); callback(""); return }
+        callback("No Spotify device available. Open Omarchy Spotify or start playback somewhere.")
+        return
+      }
+      root.sendPlayback("PUT", Api.playUrl(deviceId), Api.playTrackBody(row.uri), token, callback)
+    }, callback)
+  }
+
+  function queueTrack(row, callback) {
+    withDevice(function(token, deviceId) {
+      if (deviceId === "") { callback("Queueing needs an active Spotify device"); return }
+      root.sendPlayback("POST", Api.queueUrl(row.uri, deviceId), "", token, callback)
+    }, callback)
+  }
+
+  function playAlbum(row, callback) {
+    if (!row.albumUri) { callback("This track has no album"); return }
+    withDevice(function(token, deviceId) {
+      if (deviceId === "") { callback("Playing an album needs an active Spotify device"); return }
+      root.sendPlayback("PUT", Api.playUrl(deviceId),
+        Api.playAlbumBody(row.albumUri, row.uri), token, callback)
+    }, callback)
   }
 }
