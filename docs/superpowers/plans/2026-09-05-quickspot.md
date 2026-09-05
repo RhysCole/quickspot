@@ -1470,8 +1470,11 @@ Insert before the closing brace of the `QtObject`:
     if (String(query).trim() === "") { callback([], ""); return }
 
     withToken(function(token, error) {
-      if (error) { callback([], error); return }
+      // Staleness first: withToken queues this continuation when a refresh has
+      // to run, so a cancelSearch() or a newer query can land while it waits.
+      // Checking `error` first would let a cancelled search call back anyway.
       if (serial !== root.searchSerial) return
+      if (error) { callback([], error); return }
 
       var request = new XMLHttpRequest()
       request.open("GET", Api.searchUrl(query, 20))
