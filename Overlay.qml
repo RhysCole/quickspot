@@ -25,11 +25,18 @@ Item {
   property int selectedIndex: 0
   property string statusText: ""
   readonly property bool showingHistory: field.text.trim() === "" && rows.length === 0
+  // The length of whichever list Up/Down/Tab currently navigate, so those
+  // handlers never clamp against the wrong (possibly empty) list.
+  readonly property int activeCount: showingHistory ? history.length : rows.length
 
   function runSearch(query) {
-    if (!service) return
-    if (query.trim() === "") { rows = []; statusText = ""; service.cancelSearch(); return }
+    // A response for a stale query must not write state after the overlay
+    // has closed: close() stops the debounce timer, but a search already
+    // in flight when close() ran can still resolve afterwards.
+    if (!service || !opened) return
+    if (query.trim() === "") { rows = []; selectedIndex = 0; statusText = ""; service.cancelSearch(); return }
     service.search(query, function(results, error) {
+      if (!root.opened) return
       root.rows = results
       root.selectedIndex = 0
       root.statusText = error !== "" ? error : (results.length === 0 ? "No results" : "")
@@ -102,6 +109,11 @@ Item {
   function close() {
     if (!opened) return
     opened = false
+    // Stop any pending debounced search: without this, a search typed then
+    // dismissed inside the 180ms debounce window still fires after `opened`
+    // goes false. `runSearch`'s own `opened` guard is a second line of
+    // defence for a request already in flight when close() runs.
+    debounce.stop()
     if (service) service.cancelSearch()
     // Keep the surface mapped so the exit animation is visible, then hide it
     // shortly after the 150ms exit animation would have finished. Guarded so
@@ -226,11 +238,16 @@ Item {
             debounce.restart()
           }
 
+          // Clamped against activeCount (results OR history, whichever is
+          // showing) so Down/Tab cannot pin selectedIndex to -1 when rows is
+          // empty but history is what's actually on screen.
           Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 1)
-          Keys.onDownPressed: root.selectedIndex = Math.min(root.rows.length - 1, root.selectedIndex + 1)
-          Keys.onTabPressed: root.selectedIndex = root.rows.length === 0
+          Keys.onDownPressed: root.selectedIndex = root.activeCount === 0
             ? 0
-            : (root.selectedIndex + 1) % root.rows.length
+            : Math.min(root.activeCount - 1, root.selectedIndex + 1)
+          Keys.onTabPressed: root.selectedIndex = root.activeCount === 0
+            ? 0
+            : (root.selectedIndex + 1) % root.activeCount
 
           // Both handlers delegate to root.submit(): an attached signal handler
           // cannot be invoked as a function, so the shared body lives on the root.
@@ -311,22 +328,29 @@ Item {
           clip: true
           model: root.history
 
-          delegate: Text {
+          delegate: Rectangle {
+            id: historyRow
             required property int index
             required property string modelData
             width: parent ? parent.width : 0
             height: 28
-            verticalAlignment: Text.AlignVCenter
-            leftPadding: Style.space(8)
-            elide: Text.ElideRight
-            opacity: 0.7
-            color: Color.menu.text
-            font.pixelSize: Style.font.body
-            text: modelData
+            radius: Style.cornerRadius
+            color: index === root.selectedIndex ? Color.menu.selectedBackground : "transparent"
+
+            Text {
+              anchors.fill: parent
+              verticalAlignment: Text.AlignVCenter
+              leftPadding: Style.space(8)
+              elide: Text.ElideRight
+              opacity: historyRow.index === root.selectedIndex ? 1.0 : 0.7
+              color: historyRow.index === root.selectedIndex ? Color.menu.selectedText : Color.menu.text
+              font.pixelSize: Style.font.body
+              text: historyRow.modelData
+            }
 
             MouseArea {
               anchors.fill: parent
-              onClicked: field.text = modelData
+              onClicked: field.text = historyRow.modelData
             }
           }
         }
