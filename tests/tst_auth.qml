@@ -97,4 +97,30 @@ TestCase {
   function test_parseTokenResponseRejectsGarbage() {
     verify(!Auth.parseTokenResponse("<html>nope</html>", 0).ok)
   }
+
+  function test_parseCallbackRequestLineMalformedPercentEncoding() {
+    var result = Auth.parseCallbackRequestLine(
+      "GET /callback?code=abc%zzdef&state=xyz HTTP/1.1")
+    verify(!result.ok)
+    verify(result.error.length > 0)
+  }
+
+  function test_parseCallbackRequestLineNoCodeNoError() {
+    var result = Auth.parseCallbackRequestLine(
+      "GET /callback?state=xyz HTTP/1.1")
+    verify(!result.ok)
+    compare(result.error, "No authorization code in callback")
+  }
+
+  function test_parseTokenResponseRejectsJsonNull() {
+    var result = Auth.parseTokenResponse("null", 0)
+    verify(!result.ok)
+    verify(result.error.length > 0)
+  }
+
+  function test_parseTokenResponseRejectsJsonScalar() {
+    verify(!Auth.parseTokenResponse("42", 0).ok)
+    verify(!Auth.parseTokenResponse("true", 0).ok)
+    verify(!Auth.parseTokenResponse("\"string\"", 0).ok)
+  }
 }

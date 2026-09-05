@@ -46,7 +46,11 @@ function parseCallbackRequestLine(line) {
   for (var i = 0; i < pairs.length; i++) {
     var pair = pairs[i].split("=")
     if (pair.length !== 2) continue
-    query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1].replace(/\+/g, "%2B"))
+    try {
+      query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1].replace(/\+/g, "%2B"))
+    } catch (e) {
+      return { ok: false, code: "", state: "", error: "Malformed query string" }
+    }
   }
 
   if (query.error) return { ok: false, code: "", state: "", error: query.error }
@@ -61,6 +65,8 @@ function parseTokenResponse(text, nowMs) {
   } catch (e) {
     return { ok: false, accessToken: "", refreshToken: "", expiresAt: 0, error: "Malformed token response" }
   }
+  if (typeof payload !== "object" || payload === null)
+    return { ok: false, accessToken: "", refreshToken: "", expiresAt: 0, error: "Malformed token response" }
   if (payload.error)
     return { ok: false, accessToken: "", refreshToken: "", expiresAt: 0, error: String(payload.error) }
   if (!payload.access_token)
