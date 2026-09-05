@@ -1179,6 +1179,11 @@ QtObject {
   property string oauthState: ""
   property var tokenWaiters: []
 
+  // Distinguishes "the listener exited because we finished with it" from "the
+  // listener exited on its own". Without it, the success path's own
+  // `running = false` fires onExited mid-exchange and aborts a working login.
+  property bool callbackHandled: false
+
   function tokenValid() {
     return accessToken !== "" && Date.now() + 60000 < accessTokenExpiresAt
   }
@@ -1212,6 +1217,7 @@ QtObject {
     if (clientId === "") { authError = "Enter your Spotify client ID first"; return }
     authError = ""
     loginBusy = true
+    callbackHandled = false
     pkceVerifier = ""
     pkceGenerator.command = [Qt.resolvedUrl("scripts/pkce.sh").toString().replace("file://", "")]
     pkceGenerator.running = true
@@ -1249,6 +1255,7 @@ QtObject {
     }
     if (callback.state !== oauthState) { failLogin("OAuth state mismatch"); return }
 
+    callbackHandled = true
     callbackListener.write(Auth.successResponse())
     callbackListener.running = false
     exchangeCode(callback.code)
@@ -1311,6 +1318,15 @@ QtObject {
     stdout: SplitParser {
       splitMarker: "\n"
       onRead: function(line) { root.onCallbackLine(line) }
+    }
+
+    // socat runs with -T 180, so an abandoned login is guaranteed to time out
+    // and exit. Without this, nothing clears loginBusy and beginLogin() — which
+    // opens with `if (loginBusy) return` — refuses every later attempt until the
+    // shell restarts.
+    onExited: function(exitCode) {
+      if (root.loginBusy && !root.callbackHandled)
+        root.failLogin("Spotify sign-in did not complete")
     }
   }
 
