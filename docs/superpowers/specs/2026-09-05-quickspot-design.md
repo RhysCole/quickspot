@@ -345,7 +345,7 @@ continuously, so `main` is always at a state where the test suite passes.
   without it, so the plugin degrades to a search box that cannot play.
 - Each installer must register their own Spotify developer application.
 - The redirect port must match the registered URI exactly.
-- `Quickshell.Services.Mpris` `openUri` behaviour is verified as present in
-  Quickshell 0.3.1 but the daemon's response to it is asserted from the
-  librespot MPRIS interface, not yet exercised end to end. First implementation
-  step against a live daemon should confirm it.
+- `Quickshell.Services.Mpris` `openUri` is confirmed present in Quickshell
+  0.3.1, but calling it against the librespot daemon has never been exercised
+  end to end — no session has invoked it against a running daemon and observed
+  the result. This remains open for the user's first run to confirm.
