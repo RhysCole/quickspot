@@ -1010,6 +1010,17 @@ TestCase {
     compare(list[9], "q5")
   }
 
+  function test_insertRespectsCapAtBoundaryValues() {
+    var one = Recent.insert(["a", "b", "c"], "x", 1)
+    compare(one.length, 1)
+    compare(one[0], "x")
+
+    var two = Recent.insert(["a", "b", "c"], "x", 2)
+    compare(two.length, 2)
+    compare(two[0], "x")
+    compare(two[1], "a")
+  }
+
   function test_insertTreatsDifferentCaseAsDifferentQueries() {
     var list = Recent.insert(Recent.insert([], "M83", 10), "m83", 10)
     compare(list.length, 2)
@@ -1063,8 +1074,10 @@ function insert(list, query, cap) {
   var source = list || []
   for (var i = 0; i < source.length; i++) {
     if (source[i] === trimmed) continue
+    // Checked before the push: `out` already holds the new query, so a
+    // post-push equality test can never fire when limit is 1.
+    if (out.length >= limit) break
     out.push(source[i])
-    if (out.length === limit) break
   }
   return out
 }
@@ -1092,7 +1105,7 @@ function serialize(list) {
 - [ ] **Step 4: Run the tests and make sure they pass**
 
 Run: `./run-tests.sh`
-Expected: PASS — all 9 `Recent` tests green. The suite now holds 40 assertions across four test cases.
+Expected: PASS — all 10 `Recent` tests green. The suite now holds 40 assertions across four test cases.
 
 - [ ] **Step 5: Commit and push**
 
