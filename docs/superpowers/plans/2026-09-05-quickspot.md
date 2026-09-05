@@ -80,6 +80,12 @@ if [[ ! -x $runner ]]; then
 fi
 
 root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+
+# Qt 6 refuses XMLHttpRequest reads of local files unless this is set. Task 4's
+# tests load a JSON fixture that way, and without it they fail in initTestCase
+# with "Using GET on a local file is disabled by default."
+export QML_XHR_ALLOW_FILE_READ=1
+
 exec "$runner" -input "$root/tests"
 ```
 
@@ -832,6 +838,10 @@ TestCase {
     compare(Search.toRows("not json").length, 0)
     compare(Search.toRows("").length, 0)
     compare(Search.toRows(JSON.stringify({})).length, 0)
+    // Valid JSON that is not an object: `null` parses fine, and unguarded
+    // property access on it throws.
+    compare(Search.toRows("null").length, 0)
+    compare(Search.toRows("42").length, 0)
   }
 }
 ```
