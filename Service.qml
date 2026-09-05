@@ -1,5 +1,215 @@
 import QtQuick
+import Quickshell
+import Quickshell.Io
+
+import "Auth.js" as Auth
 
 QtObject {
   id: root
+
+  // Injected by the shell when the service is mounted (shell.qml:306).
+  property var shell: null
+
+  // Settings are the plugin's entry in shell.json's top-level plugins[] array.
+  // Derived rather than assigned, so an external edit to shell.json is picked
+  // up without a restart.
+  readonly property var settings: {
+    var plugins = (shell && shell.shellConfig && shell.shellConfig.plugins) || []
+    for (var i = 0; i < plugins.length; i++)
+      if (plugins[i] && plugins[i].id === "io.github.rhyscole.quickspot") return plugins[i]
+    return ({})
+  }
+  readonly property string clientId: String(settings.clientId || "")
+  readonly property int redirectPort: Auth.normalizedPort(settings.redirectPort)
+  readonly property string redirectUri: "http://127.0.0.1:" + redirectPort + "/callback"
+
+  property string accessToken: ""
+  property double accessTokenExpiresAt: 0
+  property string refreshToken: ""
+  property string authError: ""
+  property bool loginBusy: false
+
+  readonly property bool authorized: refreshToken !== ""
+  readonly property string statePath: Quickshell.env("HOME") + "/.local/state/quickspot"
+
+  property string pkceVerifier: ""
+  property string oauthState: ""
+  property var tokenWaiters: []
+
+  function tokenValid() {
+    return accessToken !== "" && Date.now() + 60000 < accessTokenExpiresAt
+  }
+
+  function withToken(callback) {
+    if (tokenValid()) { callback(accessToken, ""); return }
+    if (refreshToken === "") { callback("", "Not signed in to Spotify"); return }
+    tokenWaiters.push(callback)
+    if (!refreshRequest.active) refreshRequest.start()
+  }
+
+  function finishWaiters(token, error) {
+    var waiters = tokenWaiters
+    tokenWaiters = []
+    for (var i = 0; i < waiters.length; i++) waiters[i](token, error)
+  }
+
+  // `settings` is read-only, so this writes through the shell, which persists
+  // shell.json and republishes shellConfig. The derived property then updates.
+  function setClientId(value) {
+    if (!shell) return
+    authError = ""
+    var next = { id: "io.github.rhyscole.quickspot" }
+    for (var key in settings) if (key !== "id") next[key] = settings[key]
+    next.clientId = String(value).trim()
+    shell.updateEntryInline("io.github.rhyscole.quickspot", next)
+  }
+
+  function beginLogin() {
+    if (loginBusy) return
+    if (clientId === "") { authError = "Enter your Spotify client ID first"; return }
+    authError = ""
+    loginBusy = true
+    pkceVerifier = ""
+    pkceGenerator.command = [Qt.resolvedUrl("scripts/pkce.sh").toString().replace("file://", "")]
+    pkceGenerator.running = true
+  }
+
+  function failLogin(message) {
+    loginBusy = false
+    pkceVerifier = ""
+    authError = message
+    callbackListener.running = false
+    finishWaiters("", message)
+  }
+
+  function onPkceLine(line) {
+    if (!loginBusy || pkceVerifier !== "") return
+    var pkce = Auth.parsePkceOutput(line)
+    if (!pkce.ok) { failLogin(pkce.error); return }
+
+    pkceVerifier = pkce.verifier
+    oauthState = pkce.state
+    callbackListener.command = [
+      "socat", "-T", "180",
+      "TCP4-LISTEN:" + redirectPort + ",bind=127.0.0.1,reuseaddr",
+      "SYSTEM:cat"
+    ]
+    callbackListener.running = true
+    Qt.openUrlExternally(Auth.authorizeUrl(clientId, redirectUri, pkce.challenge, pkce.state))
+  }
+
+  function onCallbackLine(line) {
+    var callback = Auth.parseCallbackRequestLine(line)
+    if (!callback.ok) {
+      if (callback.error) failLogin("Spotify sign-in was declined")
+      return
+    }
+    if (callback.state !== oauthState) { failLogin("OAuth state mismatch"); return }
+
+    callbackListener.write(Auth.successResponse())
+    callbackListener.running = false
+    exchangeCode(callback.code)
+  }
+
+  function exchangeCode(code) {
+    var verifier = pkceVerifier
+    pkceVerifier = ""
+
+    var request = new XMLHttpRequest()
+    request.open("POST", "https://accounts.spotify.com/api/token")
+    request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded")
+    request.onreadystatechange = function() {
+      if (request.readyState !== XMLHttpRequest.DONE) return
+      root.loginBusy = false
+      var parsed = Auth.parseTokenResponse(request.responseText, Date.now())
+      if (!parsed.ok) { root.failLogin(parsed.error); return }
+      root.applyToken(parsed)
+    }
+    request.send("grant_type=authorization_code"
+      + "&code=" + encodeURIComponent(code)
+      + "&redirect_uri=" + encodeURIComponent(redirectUri)
+      + "&client_id=" + encodeURIComponent(clientId)
+      + "&code_verifier=" + encodeURIComponent(verifier))
+  }
+
+  function applyToken(parsed) {
+    accessToken = parsed.accessToken
+    accessTokenExpiresAt = parsed.expiresAt
+    if (parsed.refreshToken !== "") {
+      refreshToken = parsed.refreshToken
+      tokenStore.setText(JSON.stringify({ refresh_token: refreshToken }))
+    }
+    authError = ""
+    finishWaiters(accessToken, "")
+  }
+
+  function clearAuth(message) {
+    accessToken = ""
+    accessTokenExpiresAt = 0
+    refreshToken = ""
+    tokenStore.setText(JSON.stringify({}))
+    authError = message
+    finishWaiters("", message)
+  }
+
+  property Process pkceGenerator: Process {
+    stdout: SplitParser {
+      splitMarker: "\n"
+      onRead: function(line) { root.onPkceLine(line) }
+    }
+    onExited: function(exitCode) {
+      if (root.loginBusy && root.pkceVerifier === "" && exitCode !== 0)
+        root.failLogin("Could not start Spotify sign-in")
+    }
+  }
+
+  property Process callbackListener: Process {
+    stdinEnabled: true
+    stdout: SplitParser {
+      splitMarker: "\n"
+      onRead: function(line) { root.onCallbackLine(line) }
+    }
+  }
+
+  property FileView tokenStore: FileView {
+    path: root.statePath + "/oauth.json"
+    onLoaded: {
+      try {
+        var stored = JSON.parse(text())
+        if (stored && stored.refresh_token) root.refreshToken = String(stored.refresh_token)
+      } catch (e) {}
+    }
+  }
+
+  property QtObject refreshRequest: QtObject {
+    id: refresher
+    property bool active: false
+
+    function start() {
+      active = true
+      var request = new XMLHttpRequest()
+      request.open("POST", "https://accounts.spotify.com/api/token")
+      request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded")
+      request.onreadystatechange = function() {
+        if (request.readyState !== XMLHttpRequest.DONE) return
+        refresher.active = false
+        var parsed = Auth.parseTokenResponse(request.responseText, Date.now())
+        if (!parsed.ok) { root.clearAuth("Spotify sign-in expired, sign in again"); return }
+        root.applyToken(parsed)
+      }
+      request.send("grant_type=refresh_token"
+        + "&refresh_token=" + encodeURIComponent(root.refreshToken)
+        + "&client_id=" + encodeURIComponent(root.clientId))
+    }
+  }
+
+  property Timer refreshTimer: Timer {
+    interval: 30000
+    repeat: true
+    running: root.refreshToken !== ""
+    onTriggered: {
+      if (root.refreshToken !== "" && !root.tokenValid() && !root.refreshRequest.active)
+        root.refreshRequest.start()
+    }
+  }
 }
