@@ -1684,6 +1684,9 @@ Item {
     if (!opened) return
     opened = false
     if (service) service.cancelSearch()
+    // Without this a keystroke moments before dismissal still fires a search
+    // on a closed overlay.
+    debounce.stop()
     // Keep the surface mapped so the exit animation is visible, then hide it
     // once the 150ms exit would have finished. restart(), not start(): QML's
     // start() no-ops on an already-running timer, which would leave a rapid
@@ -1991,10 +1994,19 @@ Add `import "Recent.js" as Recent` at the top, and these properties and function
   property string statusText: ""
   readonly property bool showingHistory: field.text.trim() === "" && rows.length === 0
 
+  // Up/Down/Tab clamp against whichever list is on screen. Clamping against
+  // rows.length alone pinned selectedIndex to -1 in history mode, because
+  // Math.min(rows.length - 1, ...) is Math.min(-1, ...) when there are no rows.
+  readonly property int activeCount: showingHistory ? history.length : rows.length
+
   function runSearch(query) {
-    if (!service) return
-    if (query.trim() === "") { rows = []; statusText = ""; service.cancelSearch(); return }
+    // The debounce timer can fire after close(); without this guard it would
+    // dispatch a brand-new search — which gets a fresh serial and so is NOT
+    // filtered by the service's stale-response check — on a dismissed overlay.
+    if (!service || !opened) return
+    if (query.trim() === "") { rows = []; selectedIndex = 0; statusText = ""; service.cancelSearch(); return }
     service.search(query, function(results, error) {
+      if (!root.opened) return
       root.rows = results
       root.selectedIndex = 0
       root.statusText = error !== "" ? error : (results.length === 0 ? "No results" : "")
@@ -2068,10 +2080,12 @@ Replace the `TextField` block from Task 8 with:
 
           Keys.onEscapePressed: root.close()
           Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 1)
-          Keys.onDownPressed: root.selectedIndex = Math.min(root.rows.length - 1, root.selectedIndex + 1)
-          Keys.onTabPressed: root.selectedIndex = root.rows.length === 0
+          Keys.onDownPressed: root.selectedIndex = root.activeCount === 0
             ? 0
-            : (root.selectedIndex + 1) % root.rows.length
+            : Math.min(root.activeCount - 1, root.selectedIndex + 1)
+          Keys.onTabPressed: root.selectedIndex = root.activeCount === 0
+            ? 0
+            : (root.selectedIndex + 1) % root.activeCount
 
           // Both handlers delegate to root.submit(): an attached signal handler
           // cannot be invoked as a function, so the shared body lives on the root.
