@@ -17,6 +17,13 @@ Item {
   readonly property bool needsClientId: service ? service.clientId === "" : true
   readonly property bool needsLogin: service ? (!service.authorized && !needsClientId) : false
 
+  // Drives window.visible. Unlike `opened`, this is never derived from
+  // animated geometry (card.y / card.height), so a background event that
+  // changes the card's height while closed cannot make the surface flash
+  // visible. Set true synchronously on open; cleared only after the exit
+  // animation has had time to finish (see hideTimer below).
+  property bool surfaceVisible: false
+
   // Gap below the bar. 0 means derive it from the shell's own bar tokens; any
   // other value wins, which matters on third-party bars of a different height.
   readonly property int configuredTopMargin: service && service.settings
@@ -27,15 +34,30 @@ Item {
 
   function open(payloadJson) {
     if (opened) return
+    surfaceVisible = true
     opened = true
     field.text = ""
-    field.forceActiveFocus()
+    // Wayland layer-surface mapping is asynchronous: forcing focus in the
+    // same tick as flipping `opened` would target a child of a window that
+    // is not mapped yet. Defer to the next event loop turn, and focus
+    // whichever field is actually visible on this run.
+    Qt.callLater(function() {
+      if (root.needsClientId) {
+        if (clientIdField) clientIdField.forceActiveFocus()
+      } else {
+        if (field) field.forceActiveFocus()
+      }
+    })
   }
 
   function close() {
     if (!opened) return
     opened = false
     if (service) service.cancelSearch()
+    // Keep the surface mapped so the exit animation is visible, then hide it
+    // shortly after the 150ms exit animation would have finished. Guarded so
+    // a re-open during the exit cancels the pending hide.
+    hideTimer.start()
   }
 
   function toggle() {
@@ -43,11 +65,23 @@ Item {
     else open("")
   }
 
+  Timer {
+    id: hideTimer
+    interval: 180
+    repeat: false
+    onTriggered: {
+      if (!root.opened) root.surfaceVisible = false
+    }
+  }
+
   PanelWindow {
     id: window
 
-    // Stays mapped through the exit animation so the card can slide back out.
-    visible: root.opened || card.y > -card.height
+    // Bound only to explicit open/close state (via surfaceVisible), never to
+    // animated geometry, so it cannot be affected by card.height changing
+    // while closed (e.g. an auth-error message appearing from a background
+    // token refresh).
+    visible: root.surfaceVisible
 
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -92,6 +126,12 @@ Item {
       border.color: Color.menu.border
       border.width: 1
 
+      // Single dismiss path for Escape regardless of which field (if either)
+      // currently holds focus: an unhandled key event at the focused
+      // descendant bubbles up to this ancestor. The per-field handlers were
+      // removed so there is exactly one path, not two that could both fire.
+      Keys.onEscapePressed: root.close()
+
       Behavior on y {
         NumberAnimation { duration: root.opened ? 200 : 150; easing.type: Easing.OutCubic }
       }
@@ -119,7 +159,6 @@ Item {
             ? "Press Enter to sign in to Spotify"
             : "Search Spotify"
 
-          Keys.onEscapePressed: root.close()
           onAccepted: {
             if (root.needsLogin && root.service) root.service.beginLogin()
           }
@@ -146,7 +185,6 @@ Item {
             id: clientIdField
             Layout.fillWidth: true
             placeholderText: "Spotify client ID"
-            Keys.onEscapePressed: root.close()
             onAccepted: {
               if (text.trim() === "" || !root.service) return
               root.service.setClientId(text)
