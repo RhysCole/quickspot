@@ -35,6 +35,7 @@ QtObject {
   property string pkceVerifier: ""
   property string oauthState: ""
   property var tokenWaiters: []
+  property bool callbackHandled: false
 
   function tokenValid() {
     return accessToken !== "" && Date.now() + 60000 < accessTokenExpiresAt
@@ -70,6 +71,7 @@ QtObject {
     authError = ""
     loginBusy = true
     pkceVerifier = ""
+    callbackHandled = false
     pkceGenerator.command = [Qt.resolvedUrl("scripts/pkce.sh").toString().replace("file://", "")]
     pkceGenerator.running = true
   }
@@ -106,6 +108,7 @@ QtObject {
     }
     if (callback.state !== oauthState) { failLogin("OAuth state mismatch"); return }
 
+    callbackHandled = true
     callbackListener.write(Auth.successResponse())
     callbackListener.running = false
     exchangeCode(callback.code)
@@ -168,6 +171,10 @@ QtObject {
     stdout: SplitParser {
       splitMarker: "\n"
       onRead: function(line) { root.onCallbackLine(line) }
+    }
+    onExited: function(exitCode) {
+      if (root.loginBusy && !root.callbackHandled)
+        root.failLogin("Spotify sign-in did not complete")
     }
   }
 
