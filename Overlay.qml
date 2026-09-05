@@ -1,10 +1,13 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 
 import qs.Commons
 import qs.Ui
+
+import "Recent.js" as Recent
 
 Item {
   id: root
@@ -16,6 +19,49 @@ Item {
   property bool opened: false
   readonly property bool needsClientId: service ? service.clientId === "" : true
   readonly property bool needsLogin: service ? (!service.authorized && !needsClientId) : false
+
+  property var rows: []
+  property var history: []
+  property int selectedIndex: 0
+  property string statusText: ""
+  readonly property bool showingHistory: field.text.trim() === "" && rows.length === 0
+
+  function runSearch(query) {
+    if (!service) return
+    if (query.trim() === "") { rows = []; statusText = ""; service.cancelSearch(); return }
+    service.search(query, function(results, error) {
+      root.rows = results
+      root.selectedIndex = 0
+      root.statusText = error !== "" ? error : (results.length === 0 ? "No results" : "")
+    })
+  }
+
+  function rememberQuery(query) {
+    history = Recent.insert(history, query, Recent.CAP)
+    historyStore.setText(Recent.serialize(history))
+  }
+
+  function submit(modifiers) {
+    if (needsLogin) { service.beginLogin(); return }
+
+    if (showingHistory) {
+      if (history.length > 0) field.text = history[selectedIndex] || history[0]
+      return
+    }
+    if (modifiers & Qt.ControlModifier) act(function(row, done) { root.service.queueTrack(row, done) })
+    else if (modifiers & Qt.ShiftModifier) act(function(row, done) { root.service.playAlbum(row, done) })
+    else act(function(row, done) { root.service.playTrack(row, done) })
+  }
+
+  function act(handler) {
+    if (!service || selectedIndex < 0 || selectedIndex >= rows.length) return
+    var row = rows[selectedIndex]
+    rememberQuery(field.text)
+    handler(row, function(error) {
+      if (error === "") root.close()
+      else root.statusText = error
+    })
+  }
 
   // Drives window.visible. Unlike `opened`, this is never derived from
   // animated geometry (card.y / card.height), so a background event that
@@ -37,6 +83,9 @@ Item {
     surfaceVisible = true
     opened = true
     field.text = ""
+    rows = []
+    selectedIndex = 0
+    statusText = ""
     // Wayland layer-surface mapping is asynchronous: forcing focus in the
     // same tick as flipping `opened` would target a child of a window that
     // is not mapped yet. Defer to the next event loop turn, and focus
@@ -57,7 +106,7 @@ Item {
     // Keep the surface mapped so the exit animation is visible, then hide it
     // shortly after the 150ms exit animation would have finished. Guarded so
     // a re-open during the exit cancels the pending hide.
-    hideTimer.start()
+    hideTimer.restart()
   }
 
   function toggle() {
@@ -72,6 +121,18 @@ Item {
     onTriggered: {
       if (!root.opened) root.surfaceVisible = false
     }
+  }
+
+  Timer {
+    id: debounce
+    interval: 180
+    onTriggered: root.runSearch(field.text)
+  }
+
+  FileView {
+    id: historyStore
+    path: Quickshell.env("HOME") + "/.local/state/quickspot/history.json"
+    onLoaded: root.history = Recent.sanitize(text())
   }
 
   PanelWindow {
@@ -159,9 +220,22 @@ Item {
             ? "Press Enter to sign in to Spotify"
             : "Search Spotify"
 
-          onAccepted: {
-            if (root.needsLogin && root.service) root.service.beginLogin()
+          onTextChanged: {
+            if (root.needsLogin) return
+            root.statusText = ""
+            debounce.restart()
           }
+
+          Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 1)
+          Keys.onDownPressed: root.selectedIndex = Math.min(root.rows.length - 1, root.selectedIndex + 1)
+          Keys.onTabPressed: root.selectedIndex = root.rows.length === 0
+            ? 0
+            : (root.selectedIndex + 1) % root.rows.length
+
+          // Both handlers delegate to root.submit(): an attached signal handler
+          // cannot be invoked as a function, so the shared body lives on the root.
+          Keys.onReturnPressed: function(event) { root.submit(event.modifiers) }
+          Keys.onEnterPressed: function(event) { root.submit(event.modifiers) }
         }
 
         // First-run: capture the client ID here rather than in Omarchy's
@@ -201,6 +275,80 @@ Item {
           color: Color.urgent
           font.pixelSize: Style.font.bodySmall
           text: root.service ? root.service.authError : ""
+        }
+
+        ListView {
+          id: list
+          Layout.fillWidth: true
+          Layout.preferredHeight: Math.min(contentHeight, 320)
+          visible: root.rows.length > 0
+          clip: true
+          interactive: contentHeight > height
+          currentIndex: root.selectedIndex
+          model: root.rows
+
+          delegate: TrackRow {
+            required property int index
+            required property var modelData
+            width: list.width
+            row: modelData
+            selected: index === root.selectedIndex
+
+            MouseArea {
+              anchors.fill: parent
+              onClicked: {
+                root.selectedIndex = index
+                root.act(function(row, done) { root.service.playTrack(row, done) })
+              }
+            }
+          }
+        }
+
+        ListView {
+          Layout.fillWidth: true
+          Layout.preferredHeight: Math.min(contentHeight, 240)
+          visible: root.showingHistory && root.history.length > 0 && !root.needsClientId && !root.needsLogin
+          clip: true
+          model: root.history
+
+          delegate: Text {
+            required property int index
+            required property string modelData
+            width: parent ? parent.width : 0
+            height: 28
+            verticalAlignment: Text.AlignVCenter
+            leftPadding: Style.space(8)
+            elide: Text.ElideRight
+            opacity: 0.7
+            color: Color.menu.text
+            font.pixelSize: Style.font.body
+            text: modelData
+
+            MouseArea {
+              anchors.fill: parent
+              onClicked: field.text = modelData
+            }
+          }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: root.statusText !== ""
+          wrapMode: Text.WordWrap
+          opacity: 0.8
+          color: Color.menu.text
+          font.pixelSize: Style.font.bodySmall
+          text: root.statusText
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: root.rows.length > 0
+          horizontalAlignment: Text.AlignRight
+          opacity: 0.5
+          color: Color.menu.text
+          font.pixelSize: Style.font.bodySmall
+          text: "↵ play    Ctrl+↵ queue    Shift+↵ album"
         }
       }
     }
