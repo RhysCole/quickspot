@@ -13,8 +13,8 @@ function insert(list, query, cap) {
   var source = list || []
   for (var i = 0; i < source.length; i++) {
     if (source[i] === trimmed) continue
+    if (out.length >= limit) break
     out.push(source[i])
-    if (out.length === limit) break
   }
   return out
 }

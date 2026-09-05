@@ -35,6 +35,17 @@ TestCase {
     compare(list[9], "q5")
   }
 
+  function test_insertRespectsCapAtBoundaryValues() {
+    var listCap1 = Recent.insert(["a", "b", "c"], "x", 1)
+    compare(listCap1.length, 1)
+    compare(listCap1[0], "x")
+
+    var listCap2 = Recent.insert(["a", "b", "c"], "x", 2)
+    compare(listCap2.length, 2)
+    compare(listCap2[0], "x")
+    compare(listCap2[1], "a")
+  }
+
   function test_insertTreatsDifferentCaseAsDifferentQueries() {
     var list = Recent.insert(Recent.insert([], "M83", 10), "m83", 10)
     compare(list.length, 2)
