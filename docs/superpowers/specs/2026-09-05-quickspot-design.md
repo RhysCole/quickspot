@@ -66,7 +66,8 @@ same flag for the same reason.
 | `Service.qml` | Auth lifecycle, token timer, API requests, device resolution, history persistence |
 | `Overlay.qml` | Window, scrim, card, animation, list, key handling |
 | `TrackRow.qml` | One result row: artwork, title, artist, duration |
-| `Auth.js` | PKCE verifier/challenge derivation, authorize-URL construction, token-response parsing |
+| `scripts/pkce.sh` | Generates PKCE verifier, S256 challenge, and OAuth state via `openssl` |
+| `Auth.js` | PKCE output parsing, authorize-URL construction, token-response parsing, callback-request parsing |
 | `Api.js` | Endpoint URL building, request-body construction, HTTP error classification |
 | `Search.js` | Search response to view model, dedupe, duration and artist formatting |
 | `Recent.js` | Search-history list operations |
@@ -115,8 +116,23 @@ The redirect port is a setting with a fixed default. Spotify matches the
 registered redirect URI exactly, so the README states that changing the port
 requires changing it in the Spotify dashboard as well.
 
-This loopback listener is the only subprocess QuickSpot ever spawns, and it
-runs only during first login. Search and playback are pure QML.
+### Subprocesses
+
+QuickSpot spawns exactly two subprocesses, both only during first login:
+
+- `scripts/pkce.sh` — generates the PKCE verifier, its S256 challenge, and the
+  OAuth state, using `openssl`.
+- `socat` — the one-shot loopback listener above.
+
+`pkce.sh` exists because QML's JavaScript engine offers neither a
+cryptographically secure random source nor SHA-256. `Math.random()` is not a
+CSPRNG and is unacceptable for a PKCE verifier, and `FileView` cannot safely
+read `/dev/urandom`, which is an endless character device. `openssl` is part of
+the Arch base system. This mirrors `quickshell.spotify`, which generates PKCE
+the same way for the same reason.
+
+Search and playback spawn nothing; they are pure QML over `XMLHttpRequest` and
+`Quickshell.Services.Mpris`.
 
 ### Scopes
 
@@ -288,7 +304,7 @@ fixtures, with no compositor and no network:
 
 | Test | Covers |
 |---|---|
-| `tst_auth.qml` | PKCE verifier and challenge derivation, authorize-URL construction, token-response parsing, expiry arithmetic |
+| `tst_auth.qml` | PKCE output parsing, authorize-URL construction, token-response parsing, expiry arithmetic, callback-request-line parsing |
 | `tst_api.qml` | Endpoint URL and body construction for all three playback actions, HTTP error classification |
 | `tst_search.qml` | Response to view model, duration and artist formatting, artwork selection, dedupe |
 | `tst_recent.qml` | History insertion, dedupe, ordering, cap at 10 |
@@ -308,6 +324,7 @@ implementation step.
 manifest.json
 Service.qml      Overlay.qml      TrackRow.qml
 Auth.js          Api.js           Search.js        Recent.js
+scripts/pkce.sh
 tests/tst_*.qml  tests/fixtures/*.json  run-tests.sh
 README.md        LICENSE          docs/
 ```
