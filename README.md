@@ -67,6 +67,25 @@ them, so the card is the same size every time it drops in. Results past the
 third stay reachable by scrolling. To its right, a third of the width shows the
 next five tracks in the queue.
 
+## The controls
+
+Play, pause, skip and seek go over MPRIS — the same D-Bus interface your
+keyboard's media keys use — whenever there is a local player to talk to. That
+is a call to a process on this machine rather than a network round trip, so the
+buttons respond immediately, they need no Spotify token, and they cannot fail
+the way the Web API does when Spotify has quietly deactivated the device that
+was playing a moment ago.
+
+It is deliberately not restricted to Spotify. A browser playing YouTube exports
+the same interface, so the controls work on it too, and the panel names the app
+it is pointed at when that app is not Spotify. Buttons are greyed out when the
+current player says it cannot do something — a live stream that cannot seek, a
+video with no previous track.
+
+When nothing is playing locally — the usual case being playback on a phone —
+the controls fall back to Spotify's Web API, which is the only way to reach a
+device that is not on this machine.
+
 ## Where it plays
 
 QuickSpot targets whichever Spotify Connect device is currently active — your

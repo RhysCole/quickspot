@@ -61,12 +61,21 @@ Item {
 
       Text {
         Layout.fillWidth: true
-        visible: root.playback.ok && root.playback.albumName !== ""
+        visible: root.playback.ok && text !== ""
         elide: Text.ElideRight
         opacity: 0.5
         color: Color.menu.text
         font.pixelSize: Style.font.body
-        text: root.playback.albumName
+        // Says which app is being controlled when it is not Spotify, so a
+        // browser tab holding the media keys is visible rather than puzzling.
+        text: {
+          var album = root.playback.albumName
+          var source = root.service && root.service.localIdentity !== ""
+            && root.service.localIdentity.toLowerCase().indexOf("spotify") === -1
+            ? root.service.localIdentity : ""
+          if (album !== "" && source !== "") return album + " · " + source
+          return album !== "" ? album : source
+        }
       }
 
       RowLayout {
@@ -76,7 +85,7 @@ Item {
         TransportButton {
           accent: root.accent
           glyph: "󰒮"      // nf-md-skip_previous
-          enabled: root.playback.ok
+          enabled: root.service ? root.service.canGoPrevious : false
           onActivated: root.act(function(done) { root.service.previousTrack(done) })
         }
 
@@ -84,14 +93,14 @@ Item {
           accent: root.accent
           glyph: root.playback.playing ? "󰏤" : "󰐊"  // nf-md-pause / nf-md-play
           primary: true
-          enabled: root.playback.ok
+          enabled: root.service ? root.service.canTogglePlay : false
           onActivated: root.act(function(done) { root.service.togglePlay(done) })
         }
 
         TransportButton {
           accent: root.accent
           glyph: "󰒭"      // nf-md-skip_next
-          enabled: root.playback.ok
+          enabled: root.service ? root.service.canGoNext : false
           onActivated: root.act(function(done) { root.service.nextTrack(done) })
         }
 
@@ -102,7 +111,7 @@ Item {
         Layout.fillWidth: true
         Layout.topMargin: Style.space(6)
         accent: root.accent
-        enabled: root.playback.ok && root.playback.durationMs > 0
+        enabled: root.service ? root.service.canSeek : false
         positionMs: root.progressMs
         durationMs: root.playback.durationMs
         onSeeked: function(ms) { root.act(function(done) { root.service.seekTo(ms, done) }) }

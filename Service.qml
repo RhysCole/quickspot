@@ -36,9 +36,67 @@ QtObject {
   readonly property bool authorized: refreshToken !== ""
   readonly property string statePath: Quickshell.env("HOME") + "/.local/state/quickspot"
 
-  // What is playing right now, refreshed by `playbackPoll` while the overlay
-  // is open. Shape is Player.emptyState(); `ok` false means nothing is playing.
-  property var playback: Player.emptyState()
+  // What Spotify's Web API last said was playing. Only used when there is no
+  // local media player to read instead.
+  property var apiPlayback: Player.emptyState()
+
+  // The MPRIS player transport commands go to: whichever one is actually
+  // playing, else any that can be controlled. Deliberately not restricted to
+  // Spotify — a browser playing YouTube exports the same interface, and the
+  // controls should work on it for the same reason the keyboard's media keys
+  // do.
+  readonly property var mprisPlayer: {
+    var players = Mpris.players.values
+    var controllable = null
+    for (var i = 0; i < players.length; i++) {
+      var candidate = players[i]
+      if (!candidate || !candidate.canControl) continue
+      if (candidate.isPlaying) return candidate
+      if (controllable === null) controllable = candidate
+    }
+    return controllable
+  }
+
+  readonly property bool localControl: mprisPlayer !== null
+
+  // What the current player will actually accept. A browser playing a video
+  // often has no previous track, and a live stream cannot be seeked; greying
+  // those out beats a button that silently does nothing.
+  readonly property bool canGoNext: localControl
+    ? mprisPlayer.canGoNext : apiPlayback.ok
+  readonly property bool canGoPrevious: localControl
+    ? mprisPlayer.canGoPrevious : apiPlayback.ok
+  readonly property bool canSeek: localControl
+    ? (mprisPlayer.canSeek && mprisPlayer.positionSupported && mprisPlayer.lengthSupported)
+    : (apiPlayback.ok && apiPlayback.durationMs > 0)
+  readonly property bool canTogglePlay: localControl
+    ? mprisPlayer.canTogglePlaying : apiPlayback.ok
+
+  // Which app the controls are pointed at, for the panel to name when it is
+  // something other than Spotify.
+  readonly property string localIdentity: localControl
+    ? String(mprisPlayer.identity || "") : ""
+
+  // What is playing right now. A local player is preferred over the Web API:
+  // its state arrives on D-Bus property changes rather than a five-second
+  // poll, and it is correct for players Spotify knows nothing about.
+  readonly property var playback: localControl ? mprisPlayback : apiPlayback
+
+  readonly property var mprisPlayback: {
+    var player = mprisPlayer
+    if (!player) return Player.emptyState()
+    return {
+      ok: String(player.trackTitle || "") !== "",
+      playing: player.isPlaying === true,
+      trackName: String(player.trackTitle || ""),
+      artists: String(player.trackArtist || ""),
+      albumName: String(player.trackAlbum || ""),
+      artworkUrl: String(player.trackArtUrl || ""),
+      durationMs: Math.max(0, (Number(player.length) || 0) * 1000),
+      progressMs: Math.max(0, (Number(player.position) || 0) * 1000),
+      deviceId: ""
+    }
+  }
   // Interpolated locally between polls so the seek bar moves at frame rate
   // instead of stepping once every POLL_MS.
   property double playbackProgressMs: 0
@@ -315,11 +373,15 @@ QtObject {
     request.send(body === "" ? undefined : body)
   }
 
-  // The local librespot daemon, when it is running.
+  // A local Spotify specifically — the desktop client or the librespot daemon.
+  // Distinct from `mprisPlayer`: handing a Spotify track URI to whatever
+  // happens to be playing would mean asking a browser to open it.
   function localPlayer() {
     var players = Mpris.players.values
-    for (var i = 0; i < players.length; i++)
-      if (String(players[i].dbusName || "").indexOf("OmarchySpotify") !== -1) return players[i]
+    for (var i = 0; i < players.length; i++) {
+      var name = String(players[i].dbusName || "").toLowerCase()
+      if (name.indexOf("spotify") !== -1) return players[i]
+    }
     return null
   }
 
@@ -399,6 +461,9 @@ QtObject {
 
   function pollPlayback() {
     if (refreshToken === "") return
+    // A local player is already the source of truth, so this would be a
+    // request every five seconds whose answer is discarded.
+    if (localControl) return
     withToken(function(token, error) {
       if (error) return
       var request = new XMLHttpRequest()
@@ -439,8 +504,8 @@ QtObject {
   }
 
   function applyPlayback(state) {
-    playback = state
-    playbackProgressMs = state.progressMs
+    apiPlayback = state
+    if (!localControl) playbackProgressMs = state.progressMs
   }
 
   // Transport verbs share a shape: act on the device Spotify already considers
@@ -456,27 +521,36 @@ QtObject {
     })
   }
 
+  // Every transport verb goes over D-Bus when a local player exists: it is a
+  // call to a process on this machine rather than a network round trip, it
+  // needs no token, and it cannot fail the way the Web API does when Spotify
+  // has quietly deactivated the device that was playing a moment ago. The Web
+  // API path stays for controlling a device that is not local, such as a phone.
   function togglePlay(callback) {
-    var verb = playback.playing ? "pause" : "play"
-    // Optimistic: flip the icon now rather than after the round trip, and let
-    // the settle poll correct it if the request turned out to fail.
-    var next = playback
-    next.playing = !playback.playing
-    playback = next
-    sendTransport("PUT", Api.transportUrl(verb, playback.deviceId, ""), callback)
+    if (localControl) { mprisPlayer.togglePlaying(); callback(""); return }
+    var verb = apiPlayback.playing ? "pause" : "play"
+    sendTransport("PUT", Api.transportUrl(verb, apiPlayback.deviceId, ""), callback)
   }
 
   function nextTrack(callback) {
-    sendTransport("POST", Api.transportUrl("next", playback.deviceId, ""), callback)
+    if (localControl) { mprisPlayer.next(); callback(""); return }
+    sendTransport("POST", Api.transportUrl("next", apiPlayback.deviceId, ""), callback)
   }
 
   function previousTrack(callback) {
-    sendTransport("POST", Api.transportUrl("previous", playback.deviceId, ""), callback)
+    if (localControl) { mprisPlayer.previous(); callback(""); return }
+    sendTransport("POST", Api.transportUrl("previous", apiPlayback.deviceId, ""), callback)
   }
 
   function seekTo(positionMs, callback) {
     playbackProgressMs = positionMs
-    sendTransport("PUT", Api.seekUrl(positionMs, playback.deviceId), callback)
+    if (localControl) {
+      // MprisPlayer.position is writable and in seconds; seek() is relative.
+      mprisPlayer.position = positionMs / 1000
+      callback("")
+      return
+    }
+    sendTransport("PUT", Api.seekUrl(positionMs, apiPlayback.deviceId), callback)
   }
 
   property Timer playbackPoll: Timer {
@@ -505,6 +579,13 @@ QtObject {
     repeat: true
     onTriggered: {
       if (!root.playback.ok || !root.playback.playing) return
+      // MPRIS exposes a real position, so read it rather than guessing. The
+      // property does not reliably signal on its own, which is why this is
+      // still a timer rather than a binding.
+      if (root.localControl) {
+        root.playbackProgressMs = Math.max(0, (Number(root.mprisPlayer.position) || 0) * 1000)
+        return
+      }
       root.playbackProgressMs = Player.advance(root.playbackProgressMs, interval,
                                                root.playback.durationMs)
     }
