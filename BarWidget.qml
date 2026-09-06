@@ -74,7 +74,10 @@ BarWidget {
     BarIconButton {
       bar: root.bar
       visible: root.compact
-      text: "󰷇"      // nf-md-spotify
+      // A music note rather than the Spotify mark: with nothing playing the
+      // widget is a launcher for music generally, and the transport controls
+      // it grows into drive any media player, not only Spotify.
+      text: "󰎉"      // nf-md-music_note
       tooltipText: root.hasMedia ? root.trackLabel : "Search Spotify"
       active: root.playing
       onPressed: function(mouseButton) { root.open() }
