@@ -9,6 +9,17 @@ seekable progress bar, and the next five tracks in the queue.
 Every colour comes from your active Omarchy theme, and the background drifts in
 the colours of the album currently playing.
 
+![QuickSpot searching, with the background taking its colours from the album](docs/images/overlay-red.png)
+
+Search returns tracks, albums and playlists together. The queue sits on the
+right, the player below, and the bar widget along the top shows what is playing
+with its own transport controls.
+
+![The same overlay on a different album, recoloured to match](docs/images/overlay-blue.png)
+
+Every colour on the card follows the artwork — the drifting background, the
+title, the selection, the play button and the progress bar all move with it.
+
 ## Requirements
 
 - Omarchy 4 and Quickshell 0.3.1 or newer
