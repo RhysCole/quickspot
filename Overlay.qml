@@ -284,20 +284,29 @@ Item {
             debounce.restart()
           }
 
-          // The arrows drive playback rather than the result list, and are
-          // accepted so they do not also move the text cursor. Tab and
-          // Shift+Tab move the selection instead — the launcher is used by
-          // typing and pressing Enter far more often than by walking a list.
-          Keys.onDownPressed: function(event) {
-            root.transport("toggle")
-            event.accepted = true
-          }
+          // Up and Down walk the results, which is what a list of results is
+          // for. Left and Right change track and are accepted so they do not
+          // also move the text cursor.
+          Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 1)
+          Keys.onDownPressed: root.selectedIndex = root.rows.length === 0
+            ? 0
+            : Math.min(root.rows.length - 1, root.selectedIndex + 1)
+
           Keys.onLeftPressed: function(event) {
             root.transport("previous")
             event.accepted = true
           }
           Keys.onRightPressed: function(event) {
             root.transport("next")
+            event.accepted = true
+          }
+
+          // Matched on the character rather than the key code, so it works on
+          // a layout where # needs a modifier. Accepted so it toggles playback
+          // instead of being typed into the query.
+          Keys.onPressed: function(event) {
+            if (event.text !== "#") return
+            root.transport("toggle")
             event.accepted = true
           }
 
@@ -432,7 +441,7 @@ Item {
             opacity: root.rows.length > 0 ? 0.5 : 0.25
             color: Color.menu.text
             font.pixelSize: Style.font.bodySmall
-            text: "↵ play    ⇥ select    Ctrl+↵ queue    Shift+↵ album"
+            text: "↵ play    ↑↓ select    Ctrl+↵ queue    Shift+↵ album"
 
             Behavior on opacity {
               NumberAnimation { duration: 200 }
@@ -445,7 +454,7 @@ Item {
             opacity: 0.5
             color: Color.menu.text
             font.pixelSize: Style.font.bodySmall
-            text: "← prev    ↓ play/pause    → next    esc close"
+            text: "← prev    # play/pause    → next    esc close"
           }
         }
 

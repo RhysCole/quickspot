@@ -49,17 +49,15 @@ Then `hyprctl reload`.
 | `Enter` | Play the selected result — a track on its own, an album or playlist as a whole |
 | `Ctrl+Enter` | Add it to the queue (tracks only) |
 | `Shift+Enter` | Play its album, starting from it |
-| `Tab` / `Shift+Tab` | Move the selection |
-| `Down` | Play / pause |
+| `Up` / `Down` / `Tab` | Move the selection |
+| `#` | Play / pause |
 | `Left` / `Right` | Previous / next track |
 | `Escape` | Dismiss |
 
-The arrows control playback rather than the result list, and work with the
-field empty — so the overlay is a remote as well as a launcher, without
-reaching for the mouse. The selection moves with `Tab` instead, since the
-launcher is used by typing and pressing Enter far more often than by walking a
-list. One consequence worth knowing: `Left` and `Right` no longer move the text
-cursor. `Home`, `End` and clicking still do.
+Playback keys work with the field empty, so the overlay is a remote as well as a
+launcher. Two consequences worth knowing: `Left` and `Right` no longer move the
+text cursor — `Home`, `End` and clicking still do — and `#` cannot be typed into
+a query.
 
 Acting on a result leaves the overlay open, so a run of track changes does not
 mean re-summoning the launcher between each one. Escape, or a click outside the
