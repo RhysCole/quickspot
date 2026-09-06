@@ -7,6 +7,7 @@ import "Auth.js" as Auth
 import "Api.js" as Api
 import "Search.js" as Search
 import "Player.js" as Player
+import "Lyrics.js" as Lyrics
 
 QtObject {
   id: root
@@ -101,6 +102,12 @@ QtObject {
   // instead of stepping once every POLL_MS.
   property double playbackProgressMs: 0
   property int playbackWatchers: 0
+  // Timed lyric lines for the current track, empty when there are none. Looked
+  // up by name and artist rather than by any Spotify id, so it works for a
+  // browser playing YouTube as much as for Spotify.
+  property var lyrics: []
+  property string lyricsKey: ""
+
   // The next few tracks Spotify will play, read on the same cycle as playback.
   property var queue: []
   readonly property int queueLength: 5
@@ -439,6 +446,7 @@ QtObject {
     if (playbackWatchers === 1) {
       pollPlayback()
       pollQueue()
+      if (trackKey !== "" && lyricsKey !== trackKey) lyricsFetch.restart()
       playbackPoll.start()
       progressTick.start()
     }
@@ -501,6 +509,51 @@ QtObject {
       }
       request.send()
     })
+  }
+
+  // Identity of the track for lyric purposes. Name and artist are all LRCLIB
+  // matches on, so anything else changing must not trigger a refetch.
+  readonly property string trackKey: playback.ok
+    ? playback.trackName + "\u0000" + playback.artists : ""
+
+  onTrackKeyChanged: {
+    lyrics = []
+    lyricsKey = ""
+    if (trackKey !== "" && playbackWatchers > 0) lyricsFetch.restart()
+  }
+
+  // Only ever runs while the overlay is open, and one lookup per track: two
+  // requests at most, and only on a miss.
+  function fetchLyrics(withDuration) {
+    var state = playback
+    if (!state.ok || state.trackName === "") return
+    var key = trackKey
+
+    var request = new XMLHttpRequest()
+    request.open("GET", Lyrics.lookupUrl(state.trackName, state.artists, state.albumName,
+                                         withDuration ? state.durationMs / 1000 : 0))
+    request.onreadystatechange = function() {
+      if (request.readyState !== XMLHttpRequest.DONE) return
+      // The track moved on while this was in flight.
+      if (key !== root.trackKey) return
+
+      if (request.status !== 200) {
+        // A duration mismatch is the usual miss: a live or remastered cut is
+        // the same song at a different length. Retry once without it.
+        if (withDuration) root.fetchLyrics(false)
+        return
+      }
+      var parsed = Lyrics.parseResponse(request.responseText)
+      root.lyrics = parsed.lines
+      root.lyricsKey = key
+    }
+    request.send()
+  }
+
+  property Timer lyricsFetch: Timer {
+    interval: 400
+    repeat: false
+    onTriggered: root.fetchLyrics(true)
   }
 
   function applyPlayback(state) {

@@ -86,6 +86,25 @@ When nothing is playing locally — the usual case being playback on a phone —
 the controls fall back to Spotify's Web API, which is the only way to reach a
 device that is not on this machine.
 
+## Lyrics
+
+When a track has timed lyrics, the current line appears in the gap between the
+transport controls and the record, fading between lines and emptying during
+instrumental breaks. Tracks without them show nothing at all — no placeholder,
+no reserved space.
+
+Lyrics come from [LRCLIB](https://lrclib.net), which is free and needs no key.
+Spotify's own lyrics are not in the Web API; the client reads them from a
+private endpoint requiring a different token, so an account does not help.
+
+Only synced lyrics are used. Unsynced text is a wall of words with no way to
+know which line is current, and showing the wrong line is worse than showing
+none.
+
+**This sends the track and artist name to `lrclib.net`** while the overlay is
+open — one request per track, two on a miss, and none when it is closed. It is
+the only third party QuickSpot talks to besides Spotify.
+
 ## Where it plays
 
 QuickSpot targets whichever Spotify Connect device is currently active — your
