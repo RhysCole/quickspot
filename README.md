@@ -108,10 +108,22 @@ QuickSpot also ships an optional bar icon. Add it with a placement:
 omarchy plugin enable io.github.rhyscole.quickspot right
 ```
 
-`left`, `center` and `right` all work. Clicking the icon opens the overlay just
-as the keybind does, and the icon lights up while something is playing, with the
-track name in its tooltip. The plugin works perfectly well without it — the bar
-icon is a second door, not the only one.
+`left`, `center` and `right` all work.
+
+With something playing, the widget shows three bars bouncing beside the track
+title, followed by previous, play/pause and next. Clicking the bars or the title
+opens the overlay; the transport buttons act in place. With nothing playing it
+collapses to a single icon, and does the same on a vertical bar, where there is
+no room for a control strip.
+
+**It follows whatever media player is active, not Spotify.** A browser playing a
+video drives it identically, and it works with no Spotify account configured at
+all — nothing the widget shows or does needs one. Search is the only part of
+QuickSpot that does.
+
+`titleWidth` in the settings below controls how much room the title gets before
+eliding. The plugin works perfectly well without the bar icon; it is a second
+door, not the only one.
 
 ## The controls
 
@@ -152,7 +164,8 @@ none. Settings live in the `plugins` array of `~/.config/omarchy/shell.json`:
   "id": "io.github.rhyscole.quickspot",
   "clientId": "your client id",
   "redirectPort": 8788,
-  "topMargin": 0
+  "topMargin": 0,
+  "titleWidth": 190
 }
 ```
 
@@ -160,6 +173,8 @@ none. Settings live in the `plugins` array of `~/.config/omarchy/shell.json`:
 the redirect URI registered in your Spotify dashboard. `topMargin` is the gap
 below the bar in pixels; `0` derives it from the shell's bar tokens, which is
 right for the stock bar and may need adjusting for a third-party one.
+`titleWidth` is how many pixels the bar widget's track title may take before it
+elides.
 
 ## The player
 
