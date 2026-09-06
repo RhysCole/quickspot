@@ -144,6 +144,21 @@ When nothing is playing locally — the usual case being playback on a phone —
 the controls fall back to Spotify's Web API, which is the only way to reach a
 device that is not on this machine.
 
+## Starting Spotify
+
+Opening the launcher is the moment you want somewhere for music to go, so if no
+Spotify client is running QuickSpot starts one then rather than letting the
+first Enter fail with "no device available". It does nothing when a client is
+already up, which is the usual case.
+
+It tries the native `spotify` package, then Arch's `spotify-launcher`, then the
+`com.spotify.Client` Flatpak, and finally the headless `omarchy-spotify`
+librespot daemon — worth trying last because QuickSpot's premise is not needing
+a window open in the first place. The client is started detached, so restarting
+the shell does not take your music down with it.
+
+Set `"launchSpotify": false` to turn this off.
+
 ## Where it plays
 
 QuickSpot targets whichever Spotify Connect device is currently active — your
@@ -166,7 +181,8 @@ array. QuickSpot reads both, so either works:
   "clientId": "your client id",
   "redirectPort": 8788,
   "topMargin": 0,
-  "titleWidth": 190
+  "titleWidth": 190,
+  "launchSpotify": true
 }
 ```
 
@@ -175,7 +191,8 @@ the redirect URI registered in your Spotify dashboard. `topMargin` is the gap
 below the bar in pixels; `0` derives it from the shell's bar tokens, which is
 right for the stock bar and may need adjusting for a third-party one.
 `titleWidth` is how many pixels the bar widget's track title may take before it
-elides.
+elides. `launchSpotify` starts a Spotify client when the overlay opens and none
+is running; set it to `false` to leave that to you.
 
 ## The player
 

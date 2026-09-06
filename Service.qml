@@ -76,6 +76,10 @@ QtObject {
 
   readonly property bool localControl: mprisPlayer !== null
 
+  // True while a Spotify client is being started. Nothing blocks on it: the
+  // overlay opens and stays usable, and playback targets appear when they do.
+  property bool launchingSpotify: false
+
   // What the current player will actually accept. A browser playing a video
   // often has no previous track, and a live stream cannot be seeked; greying
   // those out beats a button that silently does nothing.
@@ -400,6 +404,32 @@ QtObject {
       if (name.indexOf("spotify") !== -1) return players[i]
     }
     return null
+  }
+
+  // Starts a Spotify client when there is not one already, so pressing the
+  // keybind on a machine where Spotify is closed leads somewhere rather than
+  // to "no device available". Opt out with "launchSpotify": false.
+  //
+  // Conditioned on a local Spotify specifically, not on `mprisPlayer`: a
+  // browser playing a video is a media player but not somewhere Spotify can
+  // send a track.
+  function ensureSpotify() {
+    if (settings.launchSpotify === false) return
+    if (launchingSpotify) return
+    if (localPlayer() !== null) return
+
+    launchingSpotify = true
+    spotifyLauncher.running = false
+    spotifyLauncher.running = true
+  }
+
+  property Process spotifyLauncher: Process {
+    command: [Qt.resolvedUrl("scripts/launch-spotify.sh").toString().replace("file://", "")]
+    onExited: function(exitCode) {
+      root.launchingSpotify = false
+      if (exitCode !== 0)
+        console.warn("quickspot: could not start a Spotify client, exit", exitCode)
+    }
   }
 
   function playTrack(row, callback) {

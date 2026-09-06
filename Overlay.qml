@@ -116,7 +116,13 @@ Item {
     statusText = ""
     // Polling runs only while the overlay is on screen, so a closed overlay
     // costs no API quota.
-    if (service) service.watchPlayback()
+    if (service) {
+      service.watchPlayback()
+      // Opening the launcher is the moment you want somewhere to play; if
+      // Spotify is closed, start it now rather than failing at the first
+      // Enter. Does nothing when a client is already running.
+      service.ensureSpotify()
+    }
     // Wayland layer-surface mapping is asynchronous: forcing focus in the
     // same tick as flipping `opened` would target a child of a window that
     // is not mapped yet. Defer to the next event loop turn, and focus
@@ -417,6 +423,15 @@ Item {
             accent: palette.accent
             tracks: root.service ? root.service.queue : []
           }
+        }
+
+        Text {
+          Layout.fillWidth: true
+          visible: root.service && root.service.launchingSpotify
+          opacity: 0.7
+          color: Color.menu.text
+          font.pixelSize: Style.font.bodySmall
+          text: "Starting Spotify…"
         }
 
         Text {
