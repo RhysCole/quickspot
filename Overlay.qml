@@ -14,7 +14,21 @@ Item {
 
   // Injected by the shell when the overlay is loaded (shell.qml:630).
   property var shell: null
-  readonly property var service: shell ? shell.ensureService("io.github.rhyscole.quickspot") : null
+  // The shell assigns this at shell.qml:637 via serviceFor(), which returns
+  // null when the service singleton has not been instantiated yet. It must
+  // therefore be a plain property, not a binding: a readonly binding makes the
+  // shell's assignment throw before it can call registerPanelLoader(), which
+  // leaves the overlay unregistered and the keybind inert.
+  property var service: null
+
+  // serviceFor() can hand us null on a cold start. ensureService() creates the
+  // singleton on demand, so resolve lazily the first time the overlay opens.
+  function resolveService() {
+    if (service) return service
+    if (shell && shell.ensureService)
+      service = shell.ensureService("io.github.rhyscole.quickspot")
+    return service
+  }
 
   property bool opened: false
   readonly property bool needsClientId: service ? service.clientId === "" : true
@@ -87,6 +101,7 @@ Item {
 
   function open(payloadJson) {
     if (opened) return
+    resolveService()
     surfaceVisible = true
     opened = true
     field.text = ""

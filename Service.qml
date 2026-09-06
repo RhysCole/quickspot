@@ -97,7 +97,7 @@ QtObject {
     callbackListener.command = [
       "socat", "-T", "180",
       "TCP4-LISTEN:" + redirectPort + ",bind=127.0.0.1,reuseaddr",
-      "SYSTEM:cat"
+      "STDIO"
     ]
     callbackListener.running = true
     Qt.openUrlExternally(Auth.authorizeUrl(clientId, redirectUri, pkce.challenge, pkce.state))
