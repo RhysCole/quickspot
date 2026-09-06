@@ -12,7 +12,7 @@ Rectangle {
 
   signal activated()
 
-  implicitWidth: primary ? 38 : 28
+  implicitWidth: primary ? 44 : 32
   implicitHeight: implicitWidth
   radius: width / 2
 
@@ -35,7 +35,11 @@ Rectangle {
     anchors.centerIn: parent
     text: root.glyph
     color: root.primary ? Color.menu.background : Color.menu.text
-    font.pixelSize: root.primary ? Style.font.title : Style.font.body
+    // The glyphs are Nerd Font media icons, which the default UI family does
+    // not carry; naming the family explicitly keeps them from falling back to
+    // tofu on a theme that sets a different font.
+    font.family: Style.fontFamily
+    font.pixelSize: root.primary ? Style.font.heading : Style.font.subtitle
   }
 
   MouseArea {

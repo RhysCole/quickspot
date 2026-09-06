@@ -36,10 +36,14 @@ Item {
   property int selectedIndex: 0
   property string statusText: ""
 
-  // The results area keeps its height whether or not it holds anything, so the
-  // card never resizes under the pointer as you type and the player below it
-  // stays put.
-  readonly property int resultsHeight: 320
+  // TrackRow's own implicitHeight. The results area is sized in whole rows so
+  // it never shows a half-cut one.
+  readonly property int rowHeight: 52
+  readonly property int maxVisibleRows: 3
+  // Starts at nothing and grows a row at a time as results arrive, up to three.
+  // The rest stay reachable by scrolling.
+  readonly property int resultsHeight:
+    Math.min(rows.length, maxVisibleRows) * rowHeight
 
   function runSearch(query) {
     // A response for a stale query must not write state after the overlay
@@ -134,6 +138,13 @@ Item {
     else open("")
   }
 
+  ArtPalette {
+    id: palette
+    artworkUrl: root.service && root.service.playback.ok
+      ? root.service.playback.artworkUrl
+      : ""
+  }
+
   Timer {
     id: hideTimer
     interval: 180
@@ -211,10 +222,18 @@ Item {
         NumberAnimation { duration: root.opened ? 200 : 150; easing.type: Easing.OutCubic }
       }
 
-      // The results area is a fixed height, so this only animates between the
-      // first-run client-ID form and the normal layout.
+      // The card grows and shrinks as results arrive and clear, so this runs on
+      // nearly every search.
       Behavior on height {
         NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+      }
+
+      LavaBackground {
+        anchors.fill: parent
+        cornerRadius: card.radius
+        colors: palette.colors
+        // Nothing to animate behind a card that is not on screen.
+        active: root.opened
       }
 
       // Swallows clicks so they do not reach the scrim's dismiss handler.
@@ -297,7 +316,7 @@ Item {
           id: list
           Layout.fillWidth: true
           Layout.preferredHeight: root.resultsHeight
-          visible: !root.needsClientId
+          visible: root.rows.length > 0
           clip: true
           interactive: contentHeight > height
           currentIndex: root.selectedIndex

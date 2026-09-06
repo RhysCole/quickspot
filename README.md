@@ -52,8 +52,8 @@ Then `hyprctl reload`.
 | `Up` / `Down` / `Tab` | Move the selection |
 | `Escape` | Dismiss |
 
-The results area keeps its height whether or not it holds anything, so the card
-never resizes as you type and the player below it stays put.
+The results area starts at nothing and grows a row at a time as results arrive,
+up to three. The rest stay reachable by scrolling.
 
 ## Where it plays
 
@@ -97,6 +97,12 @@ moves smoothly without polling harder.
 
 The record spins only while playback is running and holds its angle when paused.
 Controls act on whichever Connect device Spotify already considers active.
+
+Behind everything, four blurred blobs drift and pulse in the dominant colours of
+the current album art — a lava lamp tinted by what is playing. Artwork is cached
+under `~/.cache/quickspot/art/` and quantized locally; nothing about it is sent
+anywhere. When nothing is playing, or a sleeve yields no usable colours, the
+theme's own accent stands in.
 
 ## What it stores
 

@@ -16,7 +16,7 @@ Item {
   property var service: null
   readonly property var playback: service ? service.playback : Player.emptyState()
   readonly property double progressMs: service ? service.playbackProgressMs : 0
-  readonly property real discSize: 108
+  readonly property real discSize: 170
 
   signal failed(string message)
 
@@ -72,20 +72,20 @@ Item {
         spacing: Style.space(10)
 
         TransportButton {
-          glyph: "⏮"
+          glyph: "󰒮"      // nf-md-skip_previous
           enabled: root.playback.ok
           onActivated: root.act(function(done) { root.service.previousTrack(done) })
         }
 
         TransportButton {
-          glyph: root.playback.playing ? "⏸" : "▶"
+          glyph: root.playback.playing ? "󰏤" : "󰐊"  // nf-md-pause / nf-md-play
           primary: true
           enabled: root.playback.ok
           onActivated: root.act(function(done) { root.service.togglePlay(done) })
         }
 
         TransportButton {
-          glyph: "⏭"
+          glyph: "󰒭"      // nf-md-skip_next
           enabled: root.playback.ok
           onActivated: root.act(function(done) { root.service.nextTrack(done) })
         }
