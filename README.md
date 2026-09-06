@@ -1,16 +1,23 @@
 # QuickSpot
 
-A Walker-style Spotify track launcher for the [Omarchy](https://omarchy.org) 4 shell.
+A Walker-style Spotify launcher for the [Omarchy](https://omarchy.org) 4 shell.
 Press a key, the search field drops in from the top edge, type, press Enter, the
-song plays. No window, no player, no browser.
+song plays. Search covers tracks, albums and playlists. Below the results sits
+what is playing now — artwork as a spinning record, transport controls, a
+seekable progress bar, and the next five tracks in the queue.
 
-Every colour comes from your active Omarchy theme.
+Every colour comes from your active Omarchy theme, and the background drifts in
+the colours of the album currently playing.
 
 ## Requirements
 
 - Omarchy 4 and Quickshell 0.3.1 or newer
-- A Spotify **Premium** account (all playback endpoints require it)
+- A Spotify **Premium** account. Search works without it; every playback
+  endpoint Spotify offers is Premium-only.
 - `socat` and `openssl`, both part of a standard Arch install
+- Somewhere for the music to come out: the Spotify desktop client, the
+  `omarchy-spotify` librespot daemon, or any device already on your Spotify
+  account, such as a phone.
 
 ## Install
 
@@ -18,17 +25,68 @@ Every colour comes from your active Omarchy theme.
 omarchy plugin add https://github.com/RhysCole/quickspot.git --enable
 ```
 
-## Set up your Spotify application
+## Set up Spotify — about 3 minutes
 
-Spotify caps a development-mode application at 25 allowlisted users, so QuickSpot
-cannot ship a shared client ID. Registering your own takes about a minute and is
-free.
+QuickSpot talks to Spotify as *you*, which means it needs an application
+registered under your own Spotify account. Spotify allows only 5 people to use
+any one application, so a shared one is not possible — this is a limit of their
+platform, not a design choice. Registering your own is free, takes a couple of
+minutes, and is the last setup you will do.
 
-1. Go to <https://developer.spotify.com/dashboard> and create an app.
-2. Set the redirect URI to exactly `http://127.0.0.1:8788/callback`.
-3. Copy the client ID.
-4. Summon QuickSpot. It asks for the ID on first run — paste it and press Enter.
-5. Press Enter again to sign in. A browser tab opens; approve, and it closes itself.
+You need a **Spotify Premium** account. Search works without it, but every
+playback endpoint Spotify offers is Premium-only.
+
+### 1. Open the developer dashboard — 30 seconds
+
+Go to **<https://developer.spotify.com/dashboard>** and log in with the Spotify
+account you already use. There is no separate developer account to create; the
+first time you visit you will be asked to accept the Developer Terms of Service.
+
+### 2. Create an application — 1 minute
+
+Click **Create app** and fill in:
+
+| Field | What to put |
+| --- | --- |
+| App name | Anything. `QuickSpot` works. |
+| App description | Anything. `Omarchy shell plugin` works. |
+| Redirect URI | `http://127.0.0.1:8788/callback` — then click **Add** |
+| Which API/SDKs are you planning to use? | Tick **Web API** |
+
+The redirect URI must match exactly, including `http://` and the port, with no
+trailing slash. It is the single most common thing to get wrong. `127.0.0.1` is
+required — Spotify rejects `localhost`.
+
+Accept the terms and click **Save**.
+
+### 3. Copy your client ID — 15 seconds
+
+On the app's page, open **Settings**. Copy the **Client ID**.
+
+You do **not** need the client secret. QuickSpot signs in with PKCE, which is
+designed for apps that cannot keep a secret, so there is nothing here worth
+leaking.
+
+### 4. Paste it into QuickSpot — 30 seconds
+
+Bind a key (see below), press it, and paste the client ID into the field that
+appears. Press Enter.
+
+### 5. Sign in — 30 seconds
+
+Press Enter again. A browser tab opens asking you to authorise your own app.
+Approve it, and the tab reports success. QuickSpot stores only a refresh token,
+in `~/.local/state/quickspot/oauth.json`, and never sees your password.
+
+### Something went wrong
+
+| What you see | What it means |
+| --- | --- |
+| `INVALID_CLIENT: Invalid redirect URI` | The URI in the dashboard is not exactly `http://127.0.0.1:8788/callback`. A trailing slash or `localhost` will do this. |
+| Browser says the site cannot be reached | The listener had already timed out, or the shell is running older code. Restart with `omarchy-restart-shell` and try again. |
+| `Spotify Premium required` | Playback endpoints are Premium-only. Search still works. |
+| `No Spotify device available` | Nothing is playing anywhere. Start a track on your phone, the desktop client, or `systemctl --user start omarchy-spotify`, then retry. |
+| `Spotify sign-in did not complete` | The browser tab was closed before approving, or the approval took longer than three minutes. Press Enter to start again. |
 
 ## Bind a key
 
@@ -36,43 +94,11 @@ QuickSpot does not edit your Hyprland config. Add this to
 `~/.config/hypr/bindings.lua`:
 
 ```lua
-o.bind("SUPER SHIFT", "S", "Search Spotify",
-  "omarchy-shell shell summon io.github.rhyscole.quickspot")
+o.bind("SUPER + SHIFT + S", "Search Spotify",
+  "omarchy-shell shell toggle io.github.rhyscole.quickspot '{}'")
 ```
 
 Then `hyprctl reload`.
-
-## Keys
-
-| Key | Action |
-| --- | --- |
-| `Enter` | Play the selected result — a track on its own, an album or playlist as a whole |
-| `Ctrl+Enter` | Add it to the queue (tracks only) |
-| `Shift+Enter` | Play its album, starting from it |
-| `Up` / `Down` / `Tab` | Move the selection |
-| `#` | Play / pause |
-| `Left` / `Right` | Previous / next track |
-| `Escape` | Dismiss |
-
-Playback keys work with the field empty, so the overlay is a remote as well as a
-launcher. Two consequences worth knowing: `Left` and `Right` no longer move the
-text cursor — `Home`, `End` and clicking still do — and `#` cannot be typed into
-a query.
-
-Acting on a result leaves the overlay open, so a run of track changes does not
-mean re-summoning the launcher between each one. Escape, or a click outside the
-card, is the only way out.
-
-Search covers tracks, albums and playlists at once. The three kinds are
-interleaved rather than listed one after another: only three rows are visible,
-so appending albums after every track would put them out of sight on every
-search, and taking one of each in turn keeps the top result of all three kinds
-on screen.
-
-The results area is always three rows, whether or not there is anything in
-them, so the card is the same size every time it drops in. Results past the
-third stay reachable by scrolling. To its right, a third of the width shows the
-next five tracks in the queue.
 
 ## The controls
 
@@ -163,14 +189,29 @@ files hold only presentation and I/O.
 
 ## Current state
 
-QuickSpot has not yet been exercised end to end: no session has loaded it into
-a running shell, authenticated it against a live Spotify account, played a
-track through it, or seen its UI rendered by a compositor. Its pure logic —
-PKCE, token parsing, search transformation, and history handling — is covered
-by 57 headless unit tests, but the OAuth flow, device resolution, playback
-dispatch, and the overlay's on-screen behaviour are verified only by
-construction and code review. Expect the first real run to surface integration
-issues that unit tests cannot catch.
+In daily use and working end to end: OAuth, search, playback, transport, theming
+and the queue have all been exercised against a live account on a running shell.
+
+The pure logic — PKCE, token parsing, search transformation, error
+classification, palette selection and playback state — is covered by 87 headless
+unit tests that need no compositor, network or Spotify account:
+
+```bash
+./run-tests.sh
+```
+
+What those tests cannot reach, and what to expect trouble from first: the OAuth
+loopback handshake, layer-shell focus behaviour, and anything that depends on
+which Spotify device happens to be active. Bug reports welcome.
+
+Known rough edges:
+
+- With the Spotify desktop client open but idle, the panel follows it rather
+  than a phone that is actually playing.
+- `#` cannot be typed into a search query, and the left and right arrows do not
+  move the text cursor — both are spent on playback controls.
+- Queue entries repeat when Spotify's repeat mode is on. That is Spotify
+  reporting the queue honestly, not a bug here.
 
 ## Licence
 
