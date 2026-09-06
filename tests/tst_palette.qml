@@ -23,6 +23,9 @@ TestCase {
   function test_downloadCommandPassesUrlAndPathAsArguments() {
     var command = Palette.downloadCommand("https://x/y", "/tmp/art/1")
     compare(command[0], "sh")
+    // Must not skip the fetch when a file is already there: a stale entry from
+    // an earlier track is indistinguishable from a fresh one.
+    verify(command[2].indexOf("-s ") === -1)
     // The URL and path are positional arguments, never interpolated into the
     // script, so a hostile filename cannot become shell syntax.
     compare(command[command.length - 2], "https://x/y")
@@ -85,11 +88,22 @@ TestCase {
     compare(Palette.readable([], Qt.rgba(0, 0, 0, 1), fallback, 4.5), fallback)
   }
 
-  function test_readablePrefersTheHighestContrastCandidate() {
-    var background = Qt.rgba(0, 0, 0, 1)
-    var dim = Qt.hsla(0.6, 0.7, 0.12, 1)
-    var bright = Qt.hsla(0.1, 0.8, 0.7, 1)
-    var out = Palette.readable([dim, bright], background, Qt.rgba(1, 0, 0, 1), 4.5)
-    verify(Math.abs(out.hslHue - bright.hslHue) < 0.02)
+  function test_readablePrefersTheMostSaturatedCandidate() {
+    var background = Qt.rgba(0.06, 0.07, 0.08, 1)
+    // The pale one has far more contrast; the saturated one is what reads as
+    // belonging to the album, so it wins and gets lifted instead.
+    var pale = Qt.hsla(0.15, 0.10, 0.85, 1)
+    var vivid = Qt.hsla(0.02, 0.90, 0.35, 1)
+    var out = Palette.readable([pale, vivid], background, Qt.rgba(0, 1, 0, 1), 4.5)
+    verify(Math.abs(out.hslHue - vivid.hslHue) < 0.02)
+    verify(Palette.contrastRatio(out, background) >= 4.5)
+  }
+
+  function test_readableSkipsAnUnliftableCandidateForTheNextOne() {
+    var background = Qt.rgba(1, 1, 1, 1)
+    // Saturated but on a white card: lifting darkens it, and it gets there.
+    var vivid = Qt.hsla(0.6, 0.95, 0.45, 1)
+    var out = Palette.readable([vivid], background, Qt.rgba(0, 0, 0, 1), 4.5)
+    verify(Palette.contrastRatio(out, background) >= 4.5)
   }
 }

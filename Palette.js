@@ -23,8 +23,11 @@ function cachePath(cacheDir, url) {
 // makes curl fail on an HTTP error instead of writing the error body as if it
 // were an image; `-s` keeps the shell's journal quiet.
 function downloadCommand(url, path) {
+  // Written fresh every time rather than reused when the file already exists:
+  // a cache hit and a stale entry from an earlier track look identical from
+  // here, and getting it wrong shows up as the previous album's colours.
   return ["sh", "-c",
-          'mkdir -p "$(dirname "$2")" && [ -s "$2" ] || curl -sfL --max-time 10 -o "$2" "$1"',
+          'mkdir -p "$(dirname "$2")" && curl -sfL --max-time 10 -o "$2" "$1"',
           "sh", String(url), String(path)]
 }
 
@@ -99,17 +102,24 @@ function ensureContrast(color, background, minRatio, steps) {
 function readable(colors, background, fallback, minRatio) {
   var target = Number(minRatio) || 4.5
   var source = colors || []
-  var best = null
-  var bestRatio = 0
 
-  for (var i = 0; i < source.length; i++) {
-    var ratio = contrastRatio(source[i], background)
-    if (ratio > bestRatio) { bestRatio = ratio; best = source[i] }
+  // Ordered by saturation, not by contrast. On a dark card the highest-contrast
+  // swatch is whichever is palest, and a washed-out cream reads as "some light
+  // colour" rather than as this album — the saturated one is what a person
+  // recognises. Contrast is then fixed by lifting lightness, which the pale
+  // candidate would not have needed but also would not have communicated.
+  var candidates = []
+  for (var i = 0; i < source.length; i++)
+    if (usable(source[i])) candidates.push(source[i])
+  if (candidates.length === 0) return fallback
+
+  candidates.sort(function(a, b) { return b.hslSaturation - a.hslSaturation })
+
+  for (var j = 0; j < candidates.length; j++) {
+    var adjusted = ensureContrast(candidates[j], background, target, 16)
+    if (contrastRatio(adjusted, background) >= target) return adjusted
   }
-  if (best === null) return fallback
-
-  var adjusted = ensureContrast(best, background, target, 12)
-  // A hue that cannot be made legible without turning into near-white or
-  // near-black is worse than the theme's own accent.
-  return contrastRatio(adjusted, background) >= target ? adjusted : fallback
+  // Nothing on the sleeve survives being made legible; the theme's own accent
+  // beats shipping text that cannot be read.
+  return fallback
 }

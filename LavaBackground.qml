@@ -15,11 +15,11 @@ Item {
   // frame behind a hidden surface.
   property bool active: false
   property real cornerRadius: 0
-  property real intensity: 0.34
+  property real intensity: 0.62
 
   // Sized off the card's height, not its width: a blob scaled to a 640px-wide
   // card washes the whole surface in one colour.
-  readonly property real blobSize: Math.max(80, height * 0.75)
+  readonly property real blobSize: Math.max(120, height * 1.05)
 
   Item {
     id: blobs
@@ -44,7 +44,7 @@ Item {
         height: root.blobSize
         radius: width / 2
         color: root.colors[index]
-        opacity: 0.75
+        opacity: 0.9
 
         Behavior on color {
           ColorAnimation { duration: 1200; easing.type: Easing.InOutQuad }
@@ -55,19 +55,16 @@ Item {
         x: root.width * (0.15 + 0.7 * blob.phase) - width / 2
         y: root.height * (0.2 + 0.6 * blob.phase) - height / 2
 
+        // Even and odd blobs set off in opposite directions, so they cross
+        // and mix instead of sweeping the card in formation.
+        readonly property real farX: (index % 2 === 0 ? 0.9 : 0.1) * root.width - width / 2
+        readonly property real nearX: (index % 2 === 0 ? 0.1 : 0.9) * root.width - width / 2
+
         SequentialAnimation on x {
           running: root.active
           loops: Animation.Infinite
-          NumberAnimation {
-            to: root.width * 0.85 - blob.width / 2
-            duration: blob.driftX
-            easing.type: Easing.InOutSine
-          }
-          NumberAnimation {
-            to: root.width * 0.15 - blob.width / 2
-            duration: blob.driftX
-            easing.type: Easing.InOutSine
-          }
+          NumberAnimation { to: blob.farX; duration: blob.driftX; easing.type: Easing.InOutSine }
+          NumberAnimation { to: blob.nearX; duration: blob.driftX; easing.type: Easing.InOutSine }
         }
 
         SequentialAnimation on y {
