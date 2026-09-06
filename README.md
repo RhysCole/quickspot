@@ -88,10 +88,16 @@ device that is not on this machine.
 
 ## Lyrics
 
-When a track has timed lyrics, the current line appears in the gap between the
-transport controls and the record, fading between lines and emptying during
-instrumental breaks. Tracks without them show nothing at all — no placeholder,
-no reserved space.
+When a track has timed lyrics, three lines show in the gap between the transport
+controls and the record: the line just gone, the line being sung, and the one
+coming. The current line lights word by word as it plays, and each new line
+rises into place rather than being swapped out. Tracks without timed lyrics show
+nothing at all — no placeholder, no reserved space.
+
+The word sweep is interpolated from each line's own span, weighted by word
+length. LRCLIB times lyrics per line and never per word — enhanced LRC with
+inline word tags does not appear in its data — so the sweep follows the singing
+closely without being the real vocal timing that Spotify has.
 
 Lyrics come from [LRCLIB](https://lrclib.net), which is free and needs no key.
 Spotify's own lyrics are not in the Web API; the client reads them from a

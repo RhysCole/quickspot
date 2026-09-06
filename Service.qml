@@ -639,7 +639,10 @@ QtObject {
   }
 
   property Timer progressTick: Timer {
-    interval: 250
+    // Fast enough that the lyric sweep moves word to word rather than in
+    // visible steps. Reading an MPRIS property is a local call and
+    // interpolating is arithmetic, so neither path minds the rate.
+    interval: 120
     repeat: true
     onTriggered: {
       if (!root.playback.ok || !root.playback.playing) return

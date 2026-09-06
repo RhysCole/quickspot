@@ -108,8 +108,8 @@ Item {
         // space on the panel and reads as the natural place for it.
         LyricsStrip {
           Layout.fillWidth: true
-          Layout.fillHeight: true
           Layout.leftMargin: Style.space(6)
+          Layout.alignment: Qt.AlignVCenter
           lines: root.service ? root.service.lyrics : []
           positionMs: root.progressMs
           accent: root.accent

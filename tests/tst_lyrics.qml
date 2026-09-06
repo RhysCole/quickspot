@@ -140,4 +140,64 @@ TestCase {
     compare(out.lines.length, 2)
     compare(out.lines[1].text, "world")
   }
+
+  function test_splitWordsCoversTheWholeLine() {
+    var words = Lyrics.splitWords("I love you")
+    compare(words.length, 3)
+    compare(words[0].start, 0)
+    compare(words[words.length - 1].end, 1)
+    // Each word starts where the previous ended: no gap the sweep falls into.
+    compare(words[1].start, words[0].end)
+  }
+
+  function test_splitWordsWeightsLongerWordsForMoreTime() {
+    var words = Lyrics.splitWords("a considerably")
+    verify((words[1].end - words[1].start) > (words[0].end - words[0].start))
+  }
+
+  function test_splitWordsHandlesEmptyAndPaddedInput() {
+    compare(Lyrics.splitWords("").length, 0)
+    compare(Lyrics.splitWords("   ").length, 0)
+    compare(Lyrics.splitWords("  spaced   out  ").length, 2)
+  }
+
+  function test_lineProgressRunsFromOneLineToTheNext() {
+    var lines = Lyrics.parseSynced("[00:10.00] a\n[00:20.00] b\n")
+    compare(Lyrics.lineProgress(lines, 0, 10000), 0)
+    compare(Lyrics.lineProgress(lines, 0, 15000), 0.5)
+    compare(Lyrics.lineProgress(lines, 0, 20000), 1)
+    // Clamped rather than running past the line.
+    compare(Lyrics.lineProgress(lines, 0, 99000), 1)
+    compare(Lyrics.lineProgress(lines, 0, 0), 0)
+  }
+
+  function test_lineProgressGivesTheLastLineAFiniteSpan() {
+    var lines = Lyrics.parseSynced("[00:10.00] only\n")
+    compare(Lyrics.lineProgress(lines, 0, 10000), 0)
+    verify(Lyrics.lineProgress(lines, 0, 12000) > 0)
+    compare(Lyrics.lineProgress(lines, 0, 10000 + Lyrics.TRAILING_LINE_MS), 1)
+  }
+
+  function test_lineProgressIsZeroOutsideTheSheet() {
+    var lines = Lyrics.parseSynced("[00:10.00] a\n")
+    compare(Lyrics.lineProgress(lines, -1, 12000), 0)
+    compare(Lyrics.lineProgress(lines, 5, 12000), 0)
+  }
+
+  function test_neighboursGiveContextAboveAndBelow() {
+    var lines = Lyrics.parseSynced("[00:01.00] a\n[00:02.00] b\n[00:03.00] c\n")
+    var middle = Lyrics.neighbours(lines, 1)
+    compare(middle.previous, "a")
+    compare(middle.next, "c")
+
+    var first = Lyrics.neighbours(lines, 0)
+    compare(first.previous, "")
+    compare(first.next, "b")
+
+    var last = Lyrics.neighbours(lines, 2)
+    compare(last.next, "")
+
+    // Before the first line starts, the next line is still worth showing.
+    compare(Lyrics.neighbours(lines, -1).next, "a")
+  }
 }
