@@ -5,6 +5,13 @@
 // reads them from a private endpoint that needs a different token — so there is
 // nothing to use there even with an account.
 var BASE = "https://lrclib.net/api/get"
+var SEARCH = "https://lrclib.net/api/search"
+
+// How far a candidate's length may sit from the track's before it is treated
+// as a different recording. Three seconds absorbs the usual disagreement
+// between what a player reports and what was submitted, without letting an
+// extended mix through.
+var DURATION_TOLERANCE_SEC = 3
 
 // Only synced lyrics are shown. A wall of unsynced text is not what a one-line
 // strip under the transport controls is for, and showing the wrong line is
@@ -19,6 +26,52 @@ function lookupUrl(trackName, artistName, albumName, durationSec) {
   var duration = Math.round(Number(durationSec) || 0)
   if (duration > 0) query.push("duration=" + duration)
   return BASE + "?" + query.join("&")
+}
+
+// /api/get returns exactly one record, chosen by exact match, and that record
+// frequently has plain lyrics only while other records of the same song carry
+// timed ones. Searching returns all of them, so a miss is recoverable.
+function searchUrl(trackName, artistName) {
+  return SEARCH + "?track_name=" + encodeURIComponent(String(trackName || ""))
+    + "&artist_name=" + encodeURIComponent(String(artistName || ""))
+}
+
+// The best search result that actually has timed lyrics. Length is the only
+// signal worth ranking on: album strings vary wildly between submissions of
+// the same recording, but a track that is 40 seconds longer is a different cut.
+function pickSynced(results, durationSec) {
+  var list = results || []
+  var target = Number(durationSec) || 0
+  var fallback = null
+
+  for (var i = 0; i < list.length; i++) {
+    var candidate = list[i]
+    if (!candidate || !candidate.syncedLyrics) continue
+    if (candidate.instrumental === true) continue
+    if (fallback === null) fallback = candidate
+    if (target <= 0) return candidate
+    if (Math.abs((Number(candidate.duration) || 0) - target) <= DURATION_TOLERANCE_SEC)
+      return candidate
+  }
+  // Nothing matched on length. A timed sheet for the wrong cut drifts, so it is
+  // only worth using when the track's own length is unknown.
+  return target > 0 ? null : fallback
+}
+
+function parseSearch(bodyText, durationSec) {
+  var payload
+  try {
+    payload = JSON.parse(String(bodyText || ""))
+  } catch (e) {
+    return { ok: false, instrumental: false, lines: [] }
+  }
+  if (!Array.isArray(payload)) return { ok: false, instrumental: false, lines: [] }
+
+  var best = pickSynced(payload, durationSec)
+  if (!best) return { ok: false, instrumental: false, lines: [] }
+
+  var lines = parseSynced(best.syncedLyrics)
+  return { ok: lines.length > 0, instrumental: false, lines: lines }
 }
 
 // "[mm:ss.xx] text" per line. Lines without a timestamp are dropped rather than

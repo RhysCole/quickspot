@@ -84,4 +84,60 @@ TestCase {
     compare(Lyrics.textAt(lines, 10000), "a")
     compare(Lyrics.textAt([], 5000), "")
   }
+
+  function test_searchUrlUsesStructuredParams() {
+    var url = Lyrics.searchUrl("Starburster", "Fontaines D.C.")
+    verify(url.indexOf("https://lrclib.net/api/search?") === 0)
+    verify(url.indexOf("track_name=Starburster") !== -1)
+    verify(url.indexOf("artist_name=Fontaines%20D.C.") !== -1)
+  }
+
+  function test_pickSyncedSkipsRecordsWithoutTimedLyrics() {
+    // This is the real shape that broke it: /api/get returned the first of
+    // these, which has plain lyrics only, while the second is the same song.
+    var results = [
+      { syncedLyrics: null, duration: 221, albumName: "Starburster" },
+      { syncedLyrics: "[00:01.00] a", duration: 221, albumName: "Starburster (single)" }
+    ]
+    compare(Lyrics.pickSynced(results, 221).albumName, "Starburster (single)")
+  }
+
+  function test_pickSyncedMatchesOnLengthNotAlbum() {
+    var results = [
+      { syncedLyrics: "[00:01.00] wrong cut", duration: 265, albumName: "Videos" },
+      { syncedLyrics: "[00:01.00] right cut", duration: 221, albumName: "Romance [Explicit]" }
+    ]
+    compare(Lyrics.pickSynced(results, 221).albumName, "Romance [Explicit]")
+    // Inside the tolerance still counts.
+    compare(Lyrics.pickSynced(results, 223).albumName, "Romance [Explicit]")
+  }
+
+  function test_pickSyncedRefusesAWrongLengthRatherThanDrifting() {
+    var results = [{ syncedLyrics: "[00:01.00] x", duration: 400, albumName: "Extended" }]
+    compare(Lyrics.pickSynced(results, 221), null)
+    // With no length to check against, something beats nothing.
+    compare(Lyrics.pickSynced(results, 0).albumName, "Extended")
+  }
+
+  function test_pickSyncedSkipsInstrumentals() {
+    var results = [{ syncedLyrics: "[00:01.00] x", duration: 221, instrumental: true }]
+    compare(Lyrics.pickSynced(results, 221), null)
+  }
+
+  function test_parseSearchHandlesAnEmptyOrNonArrayBody() {
+    verify(!Lyrics.parseSearch("[]", 221).ok)
+    verify(!Lyrics.parseSearch("{}", 221).ok)
+    verify(!Lyrics.parseSearch("not json", 221).ok)
+  }
+
+  function test_parseSearchReturnsTheChosenRecordsLines() {
+    var body = JSON.stringify([
+      { syncedLyrics: null, duration: 221 },
+      { syncedLyrics: "[00:02.00] hello\n[00:04.00] world", duration: 221 }
+    ])
+    var out = Lyrics.parseSearch(body, 221)
+    verify(out.ok)
+    compare(out.lines.length, 2)
+    compare(out.lines[1].text, "world")
+  }
 }

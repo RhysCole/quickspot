@@ -102,7 +102,8 @@ know which line is current, and showing the wrong line is worse than showing
 none.
 
 **This sends the track and artist name to `lrclib.net`** while the overlay is
-open — one request per track, two on a miss, and none when it is closed. It is
+open — one request per track, a second when the first record has no timed
+lyrics, and none when it is closed. It is
 the only third party QuickSpot talks to besides Spotify.
 
 ## Where it plays

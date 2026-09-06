@@ -522,28 +522,39 @@ QtObject {
     if (trackKey !== "" && playbackWatchers > 0) lyricsFetch.restart()
   }
 
-  // Only ever runs while the overlay is open, and one lookup per track: two
-  // requests at most, and only on a miss.
-  function fetchLyrics(withDuration) {
+  // Only ever runs while the overlay is open, at most twice per track: the
+  // exact lookup, then a search when that returns no timed lyrics.
+  function fetchLyrics() {
     var state = playback
     if (!state.ok || state.trackName === "") return
     var key = trackKey
 
+    lyricsRequest(Lyrics.lookupUrl(state.trackName, state.artists, state.albumName,
+                                   state.durationMs / 1000),
+                  key, Lyrics.parseResponse, function() {
+      // /api/get answers with a single record chosen by exact match, and that
+      // record often carries plain lyrics while another submission of the same
+      // song has timed ones. Search returns all of them.
+      root.lyricsRequest(Lyrics.searchUrl(state.trackName, state.artists), key,
+        function(body) { return Lyrics.parseSearch(body, state.durationMs / 1000) },
+        null)
+    })
+  }
+
+  function lyricsRequest(url, key, parse, onEmpty) {
     var request = new XMLHttpRequest()
-    request.open("GET", Lyrics.lookupUrl(state.trackName, state.artists, state.albumName,
-                                         withDuration ? state.durationMs / 1000 : 0))
+    request.open("GET", url)
     request.onreadystatechange = function() {
       if (request.readyState !== XMLHttpRequest.DONE) return
       // The track moved on while this was in flight.
       if (key !== root.trackKey) return
 
-      if (request.status !== 200) {
-        // A duration mismatch is the usual miss: a live or remastered cut is
-        // the same song at a different length. Retry once without it.
-        if (withDuration) root.fetchLyrics(false)
-        return
-      }
-      var parsed = Lyrics.parseResponse(request.responseText)
+      var parsed = request.status === 200
+        ? parse(request.responseText)
+        : { ok: false, instrumental: false, lines: [] }
+
+      // An instrumental is a definite answer, not a miss worth searching over.
+      if (!parsed.ok && !parsed.instrumental && onEmpty) { onEmpty(); return }
       root.lyrics = parsed.lines
       root.lyricsKey = key
     }
@@ -553,7 +564,7 @@ QtObject {
   property Timer lyricsFetch: Timer {
     interval: 400
     repeat: false
-    onTriggered: root.fetchLyrics(true)
+    onTriggered: root.fetchLyrics()
   }
 
   function applyPlayback(state) {
