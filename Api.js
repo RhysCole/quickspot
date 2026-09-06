@@ -2,10 +2,16 @@
 
 var BASE = "https://api.spotify.com/v1"
 
+// Spotify documents a maximum limit of 50, but that only applies to apps that
+// have passed extended-quota review. A development-mode app is capped at 10:
+// anything higher comes back as 400 "Invalid limit", which reads like a
+// malformed request but is really a quota ceiling. Clamp to what actually works.
+var MAX_SEARCH_LIMIT = 10
+
 function searchUrl(query, limit) {
   var capped = parseInt(limit, 10)
   if (isNaN(capped) || capped < 1) capped = 1
-  if (capped > 50) capped = 50
+  if (capped > MAX_SEARCH_LIMIT) capped = MAX_SEARCH_LIMIT
   return BASE + "/search?q=" + encodeURIComponent(query)
     + "&type=track&limit=" + capped
 }

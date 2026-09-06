@@ -7,16 +7,18 @@ TestCase {
   name: "Api"
 
   function test_searchUrlEncodesQueryAndLimitsType() {
-    var url = Api.searchUrl("m83 midnight & city", 20)
+    var url = Api.searchUrl("m83 midnight & city", 10)
     verify(url.indexOf("https://api.spotify.com/v1/search?") === 0)
     verify(url.indexOf("type=track") !== -1)
-    verify(url.indexOf("limit=20") !== -1)
+    verify(url.indexOf("limit=10") !== -1)
     verify(url.indexOf("q=m83%20midnight%20%26%20city") !== -1)
   }
 
   function test_searchUrlClampsLimit() {
     verify(Api.searchUrl("x", 0).indexOf("limit=1") !== -1)
-    verify(Api.searchUrl("x", 999).indexOf("limit=50") !== -1)
+    verify(Api.searchUrl("x", 999).indexOf("limit=10") !== -1)
+    // 11 is the first value the live API rejects with 400 "Invalid limit".
+    verify(Api.searchUrl("x", 11).indexOf("limit=10") !== -1)
   }
 
   function test_playUrlOmitsDeviceWhenUnknown() {

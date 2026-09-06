@@ -237,7 +237,7 @@ QtObject {
       if (error) { callback([], error); return }
 
       var request = new XMLHttpRequest()
-      request.open("GET", Api.searchUrl(query, 20))
+      request.open("GET", Api.searchUrl(query, Api.MAX_SEARCH_LIMIT))
       request.setRequestHeader("Authorization", "Bearer " + token)
       request.onreadystatechange = function() {
         if (request.readyState !== XMLHttpRequest.DONE) return
