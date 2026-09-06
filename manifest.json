@@ -2,17 +2,19 @@
   "schemaVersion": 1,
   "id": "io.github.rhyscole.quickspot",
   "name": "QuickSpot",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Rhys Cole",
   "license": "MIT",
   "description": "Walker-style Spotify track launcher that drops in from the top edge",
   "kinds": [
     "service",
-    "overlay"
+    "overlay",
+    "bar-widget"
   ],
   "keepLoaded": true,
   "entryPoints": {
     "service": "Service.qml",
-    "overlay": "Overlay.qml"
+    "overlay": "Overlay.qml",
+    "barWidget": "BarWidget.qml"
   }
 }

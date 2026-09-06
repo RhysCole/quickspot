@@ -100,6 +100,19 @@ o.bind("SUPER + SHIFT + S", "Search Spotify",
 
 Then `hyprctl reload`.
 
+## Or click it on the bar
+
+QuickSpot also ships an optional bar icon. Add it with a placement:
+
+```bash
+omarchy plugin enable io.github.rhyscole.quickspot right
+```
+
+`left`, `center` and `right` all work. Clicking the icon opens the overlay just
+as the keybind does, and the icon lights up while something is playing, with the
+track name in its tooltip. The plugin works perfectly well without it — the bar
+icon is a second door, not the only one.
+
 ## The controls
 
 Play, pause, skip and seek go over MPRIS — the same D-Bus interface your
@@ -212,6 +225,31 @@ Known rough edges:
   move the text cursor — both are spent on playback controls.
 - Queue entries repeat when Spotify's repeat mode is on. That is Spotify
   reporting the queue honestly, not a bug here.
+
+## Uninstalling
+
+```bash
+omarchy plugin remove io.github.rhyscole.quickspot
+omarchy-restart-shell
+```
+
+That deletes the plugin and its entry in `~/.config/omarchy/shell.json`,
+including your client ID. Three things it does not touch, because nothing else
+will clean them up for you:
+
+```bash
+rm -rf ~/.local/state/quickspot     # your Spotify refresh token
+rm -rf ~/.cache/quickspot           # cached album artwork
+```
+
+And the keybind, which QuickSpot never wrote and so will not remove — delete
+the `o.bind` line from `~/.config/hypr/bindings.lua` yourself, then
+`hyprctl reload`.
+
+Your Spotify application is separate again. It costs nothing to leave, but to be
+thorough: <https://developer.spotify.com/dashboard>, open the app, **Settings**,
+**Delete app** at the bottom. Removing it revokes QuickSpot's access to your
+account outright, which is the surest way to be sure.
 
 ## Licence
 
