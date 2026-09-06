@@ -14,7 +14,7 @@ the colours of the album currently playing.
 - Omarchy 4 and Quickshell 0.3.1 or newer
 - A Spotify **Premium** account. Search works without it; every playback
   endpoint Spotify offers is Premium-only.
-- `socat` and `openssl`, both part of a standard Arch install
+- `socat`, `openssl` and `jq`, all part of a standard Omarchy install
 - Somewhere for the music to come out: the Spotify desktop client, the
   `omarchy-spotify` librespot daemon, or any device already on your Spotify
   account, such as a phone.
@@ -150,6 +150,11 @@ Opening the launcher is the moment you want somewhere for music to go, so if no
 Spotify client is running QuickSpot starts one then rather than letting the
 first Enter fail with "no device available". It does nothing when a client is
 already up, which is the usual case.
+
+Under Hyprland the window opens on the first empty workspace and is left there
+unfocused, so starting music does not take over whatever you were doing. The
+search is the next workspace up from the one you are on, wrapping to the lower
+ones if everything above is occupied.
 
 It tries the native `spotify` package, then Arch's `spotify-launcher`, then the
 `com.spotify.Client` Flatpak, and finally the headless `omarchy-spotify`
