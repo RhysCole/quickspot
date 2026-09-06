@@ -14,13 +14,30 @@ QtObject {
   // Injected by the shell when the service is mounted (shell.qml:306).
   property var shell: null
 
-  // Settings are the plugin's entry in shell.json's top-level plugins[] array.
+  // Settings live in one of two places in shell.json, and which one depends on
+  // whether the plugin has been given a place on the bar. updateEntryInline()
+  // writes into bar.layout when it finds the id there and falls back to the
+  // top-level plugins[] array otherwise, so reading only plugins[] loses the
+  // settings of a bar-placed plugin entirely — including the client ID, which
+  // then looks like the first-run screen refusing to accept it.
+  //
   // Derived rather than assigned, so an external edit to shell.json is picked
   // up without a restart.
   readonly property var settings: {
-    var plugins = (shell && shell.shellConfig && shell.shellConfig.plugins) || []
-    for (var i = 0; i < plugins.length; i++)
-      if (plugins[i] && plugins[i].id === "io.github.rhyscole.quickspot") return plugins[i]
+    var config = (shell && shell.shellConfig) || {}
+
+    var layout = (config.bar && config.bar.layout) || {}
+    var sections = ["left", "center", "right"]
+    for (var s = 0; s < sections.length; s++) {
+      var entries = layout[sections[s]] || []
+      for (var i = 0; i < entries.length; i++)
+        if (entries[i] && entries[i].id === "io.github.rhyscole.quickspot") return entries[i]
+    }
+
+    var plugins = config.plugins || []
+    for (var j = 0; j < plugins.length; j++)
+      if (plugins[j] && plugins[j].id === "io.github.rhyscole.quickspot") return plugins[j]
+
     return ({})
   }
   readonly property string clientId: String(settings.clientId || "")

@@ -155,9 +155,10 @@ either, so QuickSpot says so rather than failing quietly.
 
 ## Settings
 
-QuickSpot has no entry in Omarchy's settings panel: the shell only builds
-settings forms for plugins with a bar widget, and QuickSpot deliberately has
-none. Settings live in the `plugins` array of `~/.config/omarchy/shell.json`:
+Settings live in `~/.config/omarchy/shell.json`. Where exactly depends on
+whether you have put QuickSpot on the bar: a bar-placed plugin keeps its
+settings in its `bar.layout` entry, everything else in the top-level `plugins`
+array. QuickSpot reads both, so either works:
 
 ```json
 {
