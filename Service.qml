@@ -43,6 +43,9 @@ QtObject {
   // instead of stepping once every POLL_MS.
   property double playbackProgressMs: 0
   property int playbackWatchers: 0
+  // The next few tracks Spotify will play, read on the same cycle as playback.
+  property var queue: []
+  readonly property int queueLength: 5
   property string pkceVerifier: ""
   property string oauthState: ""
   property var tokenWaiters: []
@@ -356,6 +359,7 @@ QtObject {
     playbackWatchers++
     if (playbackWatchers === 1) {
       pollPlayback()
+      pollQueue()
       playbackPoll.start()
       progressTick.start()
     }
@@ -393,6 +397,25 @@ QtObject {
           return
         }
         root.applyPlayback(Player.parseState(request.responseText))
+      }
+      request.send()
+    })
+  }
+
+  function pollQueue() {
+    if (refreshToken === "") return
+    withToken(function(token, error) {
+      if (error) return
+      var request = new XMLHttpRequest()
+      request.open("GET", Api.queueListUrl())
+      request.setRequestHeader("Authorization", "Bearer " + token)
+      request.onreadystatechange = function() {
+        if (request.readyState !== XMLHttpRequest.DONE) return
+        // 204 is the answer when nothing is playing, and there is no queue
+        // without something to queue behind.
+        if (request.status === 204) { root.queue = []; return }
+        if (request.status !== 200) return
+        root.queue = Player.parseQueue(request.responseText, root.queueLength)
       }
       request.send()
     })
@@ -442,7 +465,10 @@ QtObject {
   property Timer playbackPoll: Timer {
     interval: Player.POLL_MS
     repeat: true
-    onTriggered: root.pollPlayback()
+    onTriggered: {
+      root.pollPlayback()
+      root.pollQueue()
+    }
   }
 
   // Spotify applies a transport command asynchronously: polling in the same
@@ -451,7 +477,10 @@ QtObject {
   property Timer transportSettle: Timer {
     interval: 400
     repeat: false
-    onTriggered: root.pollPlayback()
+    onTriggered: {
+      root.pollPlayback()
+      root.pollQueue()
+    }
   }
 
   property Timer progressTick: Timer {

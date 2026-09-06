@@ -56,8 +56,10 @@ Acting on a result leaves the overlay open, so a run of track changes does not
 mean re-summoning the launcher between each one. Escape, or a click outside the
 card, is the only way out.
 
-The results area starts at nothing and grows a row at a time as results arrive,
-up to three. The rest stay reachable by scrolling.
+The results area is always three rows, whether or not there is anything in
+them, so the card is the same size every time it drops in. Results past the
+third stay reachable by scrolling. To its right, a third of the width shows the
+next five tracks in the queue.
 
 ## Where it plays
 
@@ -106,7 +108,9 @@ lightness until they are legible against the card so a dark sleeve cannot make
 the text unreadable. Artwork is cached
 under `~/.cache/quickspot/art/` and quantized locally; nothing about it is sent
 anywhere. When nothing is playing, or a sleeve yields no usable colours, the
-theme's own accent stands in.
+theme's own accent stands in. A sleeve that is essentially black or greyscale
+gets white instead of the theme, because a black cover coming up green is a
+thing no one can explain by looking at it.
 
 ## What it stores
 

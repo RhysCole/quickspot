@@ -83,3 +83,29 @@ function advance(progressMs, elapsedMs, durationMs) {
   if (duration > 0 && next > duration) return duration
   return next
 }
+
+// The next few tracks Spotify will play. Only the fields the column shows are
+// kept; `id` is absent from some queue entries, so the index is what makes a
+// row unique — a queue legitimately repeats the same track.
+function parseQueue(bodyText, limit) {
+  var payload
+  try {
+    payload = JSON.parse(String(bodyText || ""))
+  } catch (e) {
+    return []
+  }
+  if (typeof payload !== "object" || payload === null) return []
+
+  var items = payload.queue || []
+  var max = Math.max(0, Number(limit) || 0)
+  var out = []
+  for (var i = 0; i < items.length && out.length < max; i++) {
+    var item = items[i]
+    if (!item || !item.name) continue
+    out.push({
+      name: String(item.name),
+      artists: Search.joinArtists(item.artists)
+    })
+  }
+  return out
+}

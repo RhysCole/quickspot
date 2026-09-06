@@ -14,6 +14,10 @@ TestCase {
     verify(url.indexOf("q=m83%20midnight%20%26%20city") !== -1)
   }
 
+  function test_queueListUrlIsTheReadEndpoint() {
+    compare(Api.queueListUrl(), "https://api.spotify.com/v1/me/player/queue")
+  }
+
   function test_playerUrl() {
     compare(Api.playerUrl(), "https://api.spotify.com/v1/me/player")
   }

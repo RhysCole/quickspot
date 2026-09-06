@@ -43,9 +43,20 @@ function usable(color) {
   return (max - min) > 0.05
 }
 
+// What a sleeve that is essentially black or greyscale gets instead. Falling
+// back to the theme there was wrong: a black cover would come up in whatever
+// hue the theme happens to use, so a monochrome album looked green or yellow
+// for no reason a person could see. Near-white reads as deliberate.
+function monochromePalette() {
+  return [Qt.rgba(1, 1, 1, 1),
+          Qt.rgba(0.88, 0.89, 0.92, 1),
+          Qt.rgba(0.72, 0.74, 0.80, 1)]
+}
+
 // Always returns exactly `count` colours: filters the quantizer's output, then
-// cycles what survives. An album that quantizes to nothing usable (a pure
-// greyscale sleeve) falls back to the theme entirely.
+// cycles what survives. Nothing usable but something quantized means a
+// monochrome sleeve, which is different from having no artwork at all — the
+// first gets white, the second gets the theme.
 function build(quantized, fallback, count) {
   var total = Math.max(1, Number(count) || BLOB_COUNT)
   var kept = []
@@ -53,7 +64,8 @@ function build(quantized, fallback, count) {
   for (var i = 0; i < source.length; i++)
     if (usable(source[i])) kept.push(source[i])
 
-  if (kept.length === 0) kept = (fallback || []).slice()
+  if (kept.length === 0)
+    kept = source.length > 0 ? monochromePalette() : (fallback || []).slice()
   if (kept.length === 0) return []
 
   var out = []
@@ -111,7 +123,10 @@ function readable(colors, background, fallback, minRatio) {
   var candidates = []
   for (var i = 0; i < source.length; i++)
     if (usable(source[i])) candidates.push(source[i])
-  if (candidates.length === 0) return fallback
+  // Same split as build(): a monochrome sleeve gets white text, and only a
+  // sleeve we have no colours for at all falls through to the theme.
+  if (candidates.length === 0)
+    return source.length > 0 ? monochromePalette()[0] : fallback
 
   candidates.sort(function(a, b) { return b.hslSaturation - a.hslSaturation })
 

@@ -69,4 +69,33 @@ TestCase {
     compare(Player.formatTime(65000), "1:05")
     compare(Player.formatTime(317000), "5:17")
   }
+
+  function test_parseQueueKeepsOrderAndRespectsTheLimit() {
+    var body = JSON.stringify({ queue: [
+      { name: "One",   artists: [{ name: "A" }] },
+      { name: "Two",   artists: [{ name: "B" }, { name: "C" }] },
+      { name: "Three", artists: [] }
+    ]})
+    var out = Player.parseQueue(body, 2)
+    compare(out.length, 2)
+    compare(out[0].name, "One")
+    compare(out[1].artists, "B, C")
+  }
+
+  function test_parseQueueKeepsRepeatedTracks() {
+    // A queue legitimately repeats the same track, so nothing is deduped.
+    var body = JSON.stringify({ queue: [
+      { name: "That's Me", artists: [{ name: "Keo" }] },
+      { name: "That's Me", artists: [{ name: "Keo" }] }
+    ]})
+    compare(Player.parseQueue(body, 5).length, 2)
+  }
+
+  function test_parseQueueSurvivesGarbageAndEmptiness() {
+    compare(Player.parseQueue("", 5).length, 0)
+    compare(Player.parseQueue("not json", 5).length, 0)
+    compare(Player.parseQueue("null", 5).length, 0)
+    compare(Player.parseQueue(JSON.stringify({ queue: [{}] }), 5).length, 0)
+    compare(Player.parseQueue(JSON.stringify({ queue: [{ name: "x" }] }), 0).length, 0)
+  }
 }

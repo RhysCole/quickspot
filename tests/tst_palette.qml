@@ -54,11 +54,22 @@ TestCase {
     verify(out[0] !== out[1])
   }
 
-  function test_buildFallsBackWhenNothingIsUsable() {
-    var fallback = Qt.rgba(0.2, 0.6, 0.9, 1)
-    var out = Palette.build([Qt.rgba(0, 0, 0, 1), Qt.rgba(1, 1, 1, 1)], [fallback], 2)
-    compare(out[0], fallback)
-    compare(out[1], fallback)
+  function test_buildGivesAMonochromeSleeveWhiteNotTheTheme() {
+    // A black cover quantizes to colours that are all unusable. Falling through
+    // to the theme there made it come up in whatever hue the theme happens to
+    // use, which looks like a bug because nothing on screen explains it.
+    var themed = Qt.rgba(0.2, 0.9, 0.3, 1)
+    var out = Palette.build([Qt.rgba(0, 0, 0, 1), Qt.rgba(0.02, 0.02, 0.02, 1)], [themed], 2)
+    compare(out.length, 2)
+    verify(out[0] !== themed)
+    verify(out[0].r > 0.6 && out[0].g > 0.6 && out[0].b > 0.6)
+  }
+
+  function test_buildUsesTheThemeOnlyWhenThereIsNoArtworkAtAll() {
+    var themed = Qt.rgba(0.2, 0.6, 0.9, 1)
+    var out = Palette.build([], [themed], 2)
+    compare(out[0], themed)
+    compare(out[1], themed)
   }
 
   function test_buildReturnsNothingWithNoColoursAtAll() {
@@ -83,9 +94,16 @@ TestCase {
     verify(Math.abs(out.hslHue - dim.hslHue) < 0.02)
   }
 
-  function test_readableFallsBackWhenNothingWorks() {
+  function test_readableFallsBackOnlyWithNoArtworkAtAll() {
     var fallback = Qt.rgba(0.9, 0.9, 0.2, 1)
     compare(Palette.readable([], Qt.rgba(0, 0, 0, 1), fallback, 4.5), fallback)
+  }
+
+  function test_readableGivesAMonochromeSleeveWhite() {
+    var fallback = Qt.rgba(0.9, 0.9, 0.2, 1)
+    var out = Palette.readable([Qt.rgba(0, 0, 0, 1)], Qt.rgba(0.05, 0.05, 0.05, 1), fallback, 4.5)
+    verify(out !== fallback)
+    verify(out.r > 0.9 && out.g > 0.9 && out.b > 0.9)
   }
 
   function test_readablePrefersTheMostSaturatedCandidate() {

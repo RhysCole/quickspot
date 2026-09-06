@@ -40,10 +40,11 @@ Item {
   // it never shows a half-cut one.
   readonly property int rowHeight: 52
   readonly property int maxVisibleRows: 3
-  // Starts at nothing and grows a row at a time as results arrive, up to three.
-  // The rest stay reachable by scrolling.
-  readonly property int resultsHeight:
-    Math.min(rows.length, maxVisibleRows) * rowHeight
+  // Always three rows, whether or not there are results to put in them: the
+  // card is then the same size every time it drops in, which is the point of
+  // a launcher you summon by muscle memory. Results past the third stay
+  // reachable by scrolling.
+  readonly property int resultsHeight: maxVisibleRows * rowHeight
 
   function runSearch(query) {
     // A response for a stale query must not write state after the overlay
@@ -316,37 +317,59 @@ Item {
           text: root.service ? root.service.authError : ""
         }
 
-        ListView {
-          id: list
+        RowLayout {
           Layout.fillWidth: true
           Layout.preferredHeight: root.resultsHeight
-          visible: root.rows.length > 0
-          clip: true
-          interactive: contentHeight > height
-          currentIndex: root.selectedIndex
-          model: root.rows
+          visible: !root.needsClientId
+          spacing: Style.space(12)
 
-          // Keeps the keyboard selection on screen once the list is longer
-          // than the visible area.
-          highlightFollowsCurrentItem: true
-          highlightMoveDuration: 120
-          preferredHighlightBegin: 0
-          preferredHighlightEnd: height
+          ListView {
+            id: list
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            clip: true
+            interactive: contentHeight > height
+            currentIndex: root.selectedIndex
+            model: root.rows
 
-          delegate: TrackRow {
-            required property int index
-            required property var modelData
-            width: list.width
-            row: modelData
-            selected: index === root.selectedIndex
+            // Keeps the keyboard selection on screen once the list is longer
+            // than the visible area.
+            highlightFollowsCurrentItem: true
+            highlightMoveDuration: 120
+            preferredHighlightBegin: 0
+            preferredHighlightEnd: height
 
-            MouseArea {
-              anchors.fill: parent
-              onClicked: {
-                root.selectedIndex = index
-                root.act(function(row, done) { root.service.playTrack(row, done) })
+            delegate: TrackRow {
+              required property int index
+              required property var modelData
+              width: list.width
+              row: modelData
+              selected: index === root.selectedIndex
+
+              MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                  root.selectedIndex = index
+                  root.act(function(row, done) { root.service.playTrack(row, done) })
+                }
               }
             }
+          }
+
+          Rectangle {
+            Layout.fillHeight: true
+            Layout.preferredWidth: 1
+            color: Color.menu.border
+            opacity: 0.35
+          }
+
+          QueueColumn {
+            // A third of the row, so the results keep the two thirds they need
+            // for a track name and an artist without eliding both.
+            Layout.preferredWidth: Math.round(parent.width / 3)
+            Layout.fillHeight: true
+            accent: palette.accent
+            tracks: root.service ? root.service.queue : []
           }
         }
 

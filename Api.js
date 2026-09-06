@@ -31,6 +31,11 @@ function queueUrl(trackUri, deviceId) {
   return url
 }
 
+// GET, unlike queueUrl() below, which POSTs a track onto the queue.
+function queueListUrl() {
+  return BASE + "/me/player/queue"
+}
+
 function playerUrl() {
   return BASE + "/me/player"
 }
