@@ -63,8 +63,8 @@ Item {
   function submit(modifiers) {
     if (needsLogin) { service.beginLogin(); return }
     if (modifiers & Qt.ControlModifier) act(function(row, done) { root.service.queueTrack(row, done) })
-    else if (modifiers & Qt.ShiftModifier) act(function(row, done) { root.service.playAlbum(row, done) })
-    else act(function(row, done) { root.service.playTrack(row, done) })
+    else if (modifiers & Qt.ShiftModifier) act(function(row, done) { root.service.playAlbumOf(row, done) })
+    else act(function(row, done) { root.service.playRow(row, done) })
   }
 
   // Acting on a result leaves the overlay open: Escape (or a click on the
@@ -250,10 +250,20 @@ Item {
         anchors.margins: Style.space(12)
         spacing: Style.space(8)
 
+        // The field's own background is a translucent control fill, so the
+        // lava behind the card shows through it and tints the text. An opaque
+        // backing in the card's own colour keeps the input legible while the
+        // colour still plays everywhere else.
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.preferredHeight: field.implicitHeight
+          visible: !root.needsClientId
+          color: Color.menu.background
+          radius: Style.cornerRadius
+
         TextField {
           id: field
-          Layout.fillWidth: true
-          visible: !root.needsClientId
+          anchors.fill: parent
           placeholderText: root.needsLogin
             ? "Press Enter to sign in to Spotify"
             : "Search Spotify"
@@ -276,6 +286,7 @@ Item {
           // cannot be invoked as a function, so the shared body lives on the root.
           Keys.onReturnPressed: function(event) { root.submit(event.modifiers) }
           Keys.onEnterPressed: function(event) { root.submit(event.modifiers) }
+        }
         }
 
         // First-run: capture the client ID here rather than in Omarchy's
@@ -350,7 +361,7 @@ Item {
                 anchors.fill: parent
                 onClicked: {
                   root.selectedIndex = index
-                  root.act(function(row, done) { root.service.playTrack(row, done) })
+                  root.act(function(row, done) { root.service.playRow(row, done) })
                 }
               }
             }
@@ -390,7 +401,7 @@ Item {
           opacity: 0.5
           color: Color.menu.text
           font.pixelSize: Style.font.bodySmall
-          text: "↵ play    Ctrl+↵ queue    Shift+↵ album"
+          text: "↵ play    Ctrl+↵ queue track    Shift+↵ album"
         }
 
         Rectangle {

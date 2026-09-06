@@ -53,15 +53,23 @@ Rectangle {
         opacity: 0.7
         color: Color.menu.text
         font.pixelSize: Style.font.bodySmall
-        text: root.row ? (root.row.artists + " · " + root.row.albumName) : ""
+        // An album or playlist row has no album line of its own, so the
+        // separator would leave a dangling middle dot.
+        text: root.row
+          ? (root.row.albumName !== ""
+             ? root.row.artists + " · " + root.row.albumName
+             : root.row.artists)
+          : ""
       }
     }
 
+    // A duration for tracks, the kind for everything else — the two never
+    // apply at once, so they share the slot.
     Text {
       opacity: 0.7
       color: Color.menu.text
       font.pixelSize: Style.font.bodySmall
-      text: root.row ? root.row.durationText : ""
+      text: root.row ? root.row.trailing : ""
     }
   }
 }

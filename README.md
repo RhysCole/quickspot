@@ -46,8 +46,8 @@ Then `hyprctl reload`.
 
 | Key | Action |
 | --- | --- |
-| `Enter` | Play the selected track now |
-| `Ctrl+Enter` | Add it to the queue |
+| `Enter` | Play the selected result — a track on its own, an album or playlist as a whole |
+| `Ctrl+Enter` | Add it to the queue (tracks only) |
 | `Shift+Enter` | Play its album, starting from it |
 | `Up` / `Down` / `Tab` | Move the selection |
 | `Escape` | Dismiss |
@@ -55,6 +55,12 @@ Then `hyprctl reload`.
 Acting on a result leaves the overlay open, so a run of track changes does not
 mean re-summoning the launcher between each one. Escape, or a click outside the
 card, is the only way out.
+
+Search covers tracks, albums and playlists at once. The three kinds are
+interleaved rather than listed one after another: only three rows are visible,
+so appending albums after every track would put them out of sight on every
+search, and taking one of each in turn keeps the top result of all three kinds
+on screen.
 
 The results area is always three rows, whether or not there is anything in
 them, so the card is the same size every time it drops in. Results past the

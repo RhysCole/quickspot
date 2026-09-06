@@ -9,7 +9,8 @@ TestCase {
   function test_searchUrlEncodesQueryAndLimitsType() {
     var url = Api.searchUrl("m83 midnight & city", 10)
     verify(url.indexOf("https://api.spotify.com/v1/search?") === 0)
-    verify(url.indexOf("type=track") !== -1)
+    verify(url.indexOf("type=track%2Calbum%2Cplaylist") !== -1
+           || url.indexOf("type=track,album,playlist") !== -1)
     verify(url.indexOf("limit=10") !== -1)
     verify(url.indexOf("q=m83%20midnight%20%26%20city") !== -1)
   }
@@ -59,8 +60,14 @@ TestCase {
     compare(body.uris[0], "spotify:track:abc")
   }
 
-  function test_playAlbumBodyUsesContextAndOffset() {
-    var body = JSON.parse(Api.playAlbumBody("spotify:album:xyz", "spotify:track:abc"))
+  function test_playContextBodyOmitsTheOffsetWhenThereIsNone() {
+    var whole = JSON.parse(Api.playContextBody("spotify:playlist:p1", ""))
+    compare(whole.context_uri, "spotify:playlist:p1")
+    verify(whole.offset === undefined)
+  }
+
+  function test_playContextBodyUsesContextAndOffset() {
+    var body = JSON.parse(Api.playContextBody("spotify:album:xyz", "spotify:track:abc"))
     compare(body.context_uri, "spotify:album:xyz")
     compare(body.offset.uri, "spotify:track:abc")
   }

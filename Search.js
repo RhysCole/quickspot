@@ -42,10 +42,86 @@ function dedupe(rows) {
   var seen = {}
   var out = []
   for (var i = 0; i < rows.length; i++) {
-    var key = rows[i].name + " " + rows[i].artists
+    // Scoped by kind: a single and the album named after it are different
+    // results, and collapsing them would drop the one the user wanted.
+    var key = rows[i].kind + " " + rows[i].name + " " + rows[i].artists
     if (seen[key]) continue
     seen[key] = true
     out.push(rows[i])
+  }
+  return out
+}
+
+// The three result kinds share one row shape so the list has a single delegate
+// and one keyboard path. `kind` is what the action handler branches on.
+function trackRow(item) {
+  var album = item.album || {}
+  return {
+    kind: "track",
+    id: String(item.id || ""),
+    uri: String(item.uri),
+    name: String(item.name || ""),
+    artists: joinArtists(item.artists),
+    albumName: String(album.name || ""),
+    albumUri: String(album.uri || ""),
+    trailing: formatDuration(item.duration_ms),
+    artworkUrl: pickArtwork(album.images, 64)
+  }
+}
+
+function albumRow(item) {
+  return {
+    kind: "album",
+    id: String(item.id || ""),
+    uri: String(item.uri),
+    name: String(item.name || ""),
+    artists: joinArtists(item.artists),
+    albumName: "",
+    albumUri: String(item.uri),
+    trailing: "Album",
+    artworkUrl: pickArtwork(item.images, 64)
+  }
+}
+
+function playlistRow(item) {
+  var owner = item.owner || {}
+  return {
+    kind: "playlist",
+    id: String(item.id || ""),
+    uri: String(item.uri),
+    name: String(item.name || ""),
+    artists: String(owner.display_name || ""),
+    albumName: "",
+    albumUri: "",
+    trailing: "Playlist",
+    artworkUrl: pickArtwork(item.images, 64)
+  }
+}
+
+// Round-robin rather than one kind after another. Only three rows are visible
+// at a time, so appending albums after every track would put them out of sight
+// on every search; taking one of each in turn means the top result of all three
+// kinds is on screen without scrolling.
+function interleave(lists) {
+  var out = []
+  var longest = 0
+  for (var i = 0; i < lists.length; i++)
+    longest = Math.max(longest, lists[i].length)
+
+  for (var rank = 0; rank < longest; rank++)
+    for (var list = 0; list < lists.length; list++)
+      if (rank < lists[list].length) out.push(lists[list][rank])
+  return out
+}
+
+function mapItems(items, build) {
+  var out = []
+  var list = items || []
+  for (var i = 0; i < list.length; i++) {
+    // Spotify's search returns nulls among playlist items, which is not
+    // documented but happens often enough to crash on.
+    if (!list[i] || !list[i].uri) continue
+    out.push(build(list[i]))
   }
   return out
 }
@@ -57,23 +133,11 @@ function toRows(payloadText) {
   } catch (e) {
     return []
   }
+  if (typeof payload !== "object" || payload === null) return []
 
-  var items = (payload && payload.tracks && payload.tracks.items) || []
-  var rows = []
-  for (var i = 0; i < items.length; i++) {
-    var item = items[i]
-    if (!item || !item.uri) continue
-    var album = item.album || {}
-    rows.push({
-      id: String(item.id || ""),
-      uri: String(item.uri),
-      name: String(item.name || ""),
-      artists: joinArtists(item.artists),
-      albumName: String(album.name || ""),
-      albumUri: String(album.uri || ""),
-      durationText: formatDuration(item.duration_ms),
-      artworkUrl: pickArtwork(album.images, 64)
-    })
-  }
-  return dedupe(rows)
+  var tracks = mapItems(payload.tracks && payload.tracks.items, trackRow)
+  var albums = mapItems(payload.albums && payload.albums.items, albumRow)
+  var playlists = mapItems(payload.playlists && payload.playlists.items, playlistRow)
+
+  return dedupe(interleave([tracks, albums, playlists]))
 }

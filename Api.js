@@ -13,7 +13,7 @@ function searchUrl(query, limit) {
   if (isNaN(capped) || capped < 1) capped = 1
   if (capped > MAX_SEARCH_LIMIT) capped = MAX_SEARCH_LIMIT
   return BASE + "/search?q=" + encodeURIComponent(query)
-    + "&type=track&limit=" + capped
+    + "&type=track,album,playlist&limit=" + capped
 }
 
 function devicesUrl() {
@@ -59,8 +59,12 @@ function playTrackBody(trackUri) {
   return JSON.stringify({ uris: [trackUri] })
 }
 
-function playAlbumBody(albumUri, trackUri) {
-  return JSON.stringify({ context_uri: albumUri, offset: { uri: trackUri } })
+// Playing a container: an album or a playlist, optionally starting from one
+// track inside it.
+function playContextBody(contextUri, offsetUri) {
+  var body = { context_uri: contextUri }
+  if (offsetUri) body.offset = { uri: offsetUri }
+  return JSON.stringify(body)
 }
 
 function spotifyMessage(bodyText) {

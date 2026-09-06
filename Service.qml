@@ -336,19 +336,36 @@ QtObject {
   }
 
   function queueTrack(row, callback) {
+    if (row.kind !== "track") { callback("Only tracks can be queued"); return }
     withDevice(function(token, deviceId) {
       if (deviceId === "") { callback("Queueing needs an active Spotify device"); return }
       root.sendPlayback("POST", Api.queueUrl(row.uri, deviceId), "", token, callback)
     }, callback)
   }
 
-  function playAlbum(row, callback) {
-    if (!row.albumUri) { callback("This track has no album"); return }
+  // Albums and playlists are both "contexts" to Spotify, and a track played in
+  // the context of its album is the same call with an offset. One verb, three
+  // callers.
+  function playContext(contextUri, offsetUri, callback) {
+    if (!contextUri) { callback("Nothing to play"); return }
     withDevice(function(token, deviceId) {
-      if (deviceId === "") { callback("Playing an album needs an active Spotify device"); return }
+      if (deviceId === "") { callback("Playing this needs an active Spotify device"); return }
       root.sendPlayback("PUT", Api.playUrl(deviceId),
-        Api.playAlbumBody(row.albumUri, row.uri), token, callback)
+        Api.playContextBody(contextUri, offsetUri), token, callback)
     }, callback)
+  }
+
+  // The action for a result row, chosen by what kind of thing it is: a track
+  // plays on its own, an album or playlist plays as a context.
+  function playRow(row, callback) {
+    if (row.kind === "track") { playTrack(row, callback); return }
+    playContext(row.uri, "", callback)
+  }
+
+  function playAlbumOf(row, callback) {
+    if (row.kind !== "track") { playContext(row.uri, "", callback); return }
+    if (!row.albumUri) { callback("This track has no album"); return }
+    playContext(row.albumUri, row.uri, callback)
   }
 
   // ---------------------------------------------------------- playback
