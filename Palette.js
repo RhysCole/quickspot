@@ -4,6 +4,13 @@
 // needs. The quantizer usually returns more; anything beyond this is unused.
 var BLOB_COUNT = 4
 
+// Ceiling on how bright a blob may get. The text on top is sized for contrast
+// against the card, not against a blob that drifted underneath it, so a pale
+// sleeve — or the near-white a monochrome one produces — could wash a word out
+// as it passed. Capping luminance keeps the field dark enough to read over
+// without draining the hue that makes it recognisable.
+var MAX_BLOB_LUMINANCE = 0.34
+
 // djb2. Only has to be stable and collision-resistant enough to name a cache
 // file — artwork URLs already differ by album id.
 function cacheKey(url) {
@@ -69,8 +76,27 @@ function build(quantized, fallback, count) {
   if (kept.length === 0) return []
 
   var out = []
-  for (var j = 0; j < total; j++) out.push(kept[j % kept.length])
+  for (var j = 0; j < total; j++)
+    out.push(capBrightness(kept[j % kept.length], MAX_BLOB_LUMINANCE))
   return out
+}
+
+// Darkens a colour until it sits under a luminance ceiling, holding hue and
+// saturation so it still reads as the album's. A colour already below the
+// ceiling is returned untouched.
+function capBrightness(color, maxLuminance) {
+  var ceiling = Number(maxLuminance)
+  if (isNaN(ceiling)) ceiling = MAX_BLOB_LUMINANCE
+  if (relativeLuminance(color) <= ceiling) return color
+
+  var lightness = color.hslLightness
+  var current = color
+  for (var i = 0; i < 24 && lightness > 0; i++) {
+    lightness = Math.max(0, lightness - 0.04)
+    current = Qt.hsla(color.hslHue, color.hslSaturation, lightness, color.a)
+    if (relativeLuminance(current) <= ceiling) return current
+  }
+  return current
 }
 
 // --- readability -------------------------------------------------------

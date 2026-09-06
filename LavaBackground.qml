@@ -15,11 +15,13 @@ Item {
   // frame behind a hidden surface.
   property bool active: false
   property real cornerRadius: 0
-  property real intensity: 0.62
+  property real intensity: 0.55
 
   // Sized off the card's height, not its width: a blob scaled to a 640px-wide
-  // card washes the whole surface in one colour.
-  readonly property real blobSize: Math.max(120, height * 1.05)
+  // card washes the whole surface in one colour. Below about three quarters of
+  // the height they stop overlapping enough to merge, and the field reads as
+  // four circles rather than as one flowing thing.
+  readonly property real blobSize: Math.max(100, height * 0.78)
 
   Item {
     id: blobs
@@ -44,7 +46,7 @@ Item {
         height: root.blobSize
         radius: width / 2
         color: root.colors[index]
-        opacity: 0.9
+        opacity: 0.8
 
         Behavior on color {
           ColorAnimation { duration: 1200; easing.type: Easing.InOutQuad }
@@ -117,7 +119,9 @@ Item {
     // as four circles.
     blurEnabled: true
     blur: 1.0
-    blurMax: 48
+    // Less blur than the blobs' own size would suggest: enough to soften the
+    // edges into each other, not so much that they lose their separation.
+    blurMax: 40
     blurMultiplier: 1.0
     maskEnabled: true
     maskSource: mask

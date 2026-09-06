@@ -116,7 +116,9 @@ under `~/.cache/quickspot/art/` and quantized locally; nothing about it is sent
 anywhere. When nothing is playing, or a sleeve yields no usable colours, the
 theme's own accent stands in. A sleeve that is essentially black or greyscale
 gets white instead of the theme, because a black cover coming up green is a
-thing no one can explain by looking at it.
+thing no one can explain by looking at it. Blob colours are capped in
+brightness: the text is sized for contrast against the card, not against a pale
+blob that happens to drift under it.
 
 ## What it stores
 

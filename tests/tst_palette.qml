@@ -124,4 +124,46 @@ TestCase {
     var out = Palette.readable([vivid], background, Qt.rgba(0, 0, 0, 1), 4.5)
     verify(Palette.contrastRatio(out, background) >= 4.5)
   }
+
+  function test_capBrightnessLeavesADarkColourAlone() {
+    var dark = Qt.hsla(0.02, 0.9, 0.25, 1)
+    compare(Palette.capBrightness(dark, 0.34), dark)
+  }
+
+  function test_capBrightnessDarkensAndKeepsTheHue() {
+    var pale = Qt.hsla(0.55, 0.8, 0.9, 1)
+    var out = Palette.capBrightness(pale, 0.34)
+    verify(Palette.relativeLuminance(out) <= 0.34)
+    verify(Math.abs(out.hslHue - pale.hslHue) < 0.02)
+    verify(out.hslSaturation > 0.5)
+  }
+
+  function test_capBrightnessHandlesWhite() {
+    var out = Palette.capBrightness(Qt.rgba(1, 1, 1, 1), 0.34)
+    verify(Palette.relativeLuminance(out) <= 0.34)
+  }
+
+  function test_buildCapsEveryBlobItReturns() {
+    // The monochrome fallback is near-white, so this is the case that would
+    // otherwise wash out the text.
+    var out = Palette.build([Qt.rgba(0, 0, 0, 1)], [], 4)
+    compare(out.length, 4)
+    for (var i = 0; i < out.length; i++)
+      verify(Palette.relativeLuminance(out[i]) <= Palette.MAX_BLOB_LUMINANCE)
+  }
+
+  function test_theTextAccentIsNotCappedLikeTheBlobs() {
+    // The same colour goes two ways: capped when it is a blob, left bright
+    // when it is text. Dimming the text to the blob ceiling would cost it the
+    // contrast it was chosen for.
+    var background = Qt.rgba(0.06, 0.07, 0.08, 1)
+    var pale = Qt.hsla(0.15, 0.8, 0.75, 1)
+
+    var text = Palette.readable([pale], background, Qt.rgba(0, 1, 0, 1), 4.5)
+    verify(Palette.contrastRatio(text, background) >= 4.5)
+    verify(Palette.relativeLuminance(text) > Palette.MAX_BLOB_LUMINANCE)
+
+    var blob = Palette.build([pale], [], 1)[0]
+    verify(Palette.relativeLuminance(blob) <= Palette.MAX_BLOB_LUMINANCE)
+  }
 }
