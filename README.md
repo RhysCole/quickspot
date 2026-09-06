@@ -52,7 +52,8 @@ Then `hyprctl reload`.
 | `Up` / `Down` / `Tab` | Move the selection |
 | `Escape` | Dismiss |
 
-With the field empty, your recent searches are listed. Enter refills the field.
+The results area keeps its height whether or not it holds anything, so the card
+never resizes as you type and the player below it stays put.
 
 ## Where it plays
 
@@ -74,7 +75,8 @@ none. Settings live in the `plugins` array of `~/.config/omarchy/shell.json`:
   "id": "io.github.rhyscole.quickspot",
   "clientId": "your client id",
   "redirectPort": 8788,
-  "topMargin": 0
+  "topMargin": 0,
+  "logoPath": ""
 }
 ```
 
@@ -82,12 +84,24 @@ none. Settings live in the `plugins` array of `~/.config/omarchy/shell.json`:
 the redirect URI registered in your Spotify dashboard. `topMargin` is the gap
 below the bar in pixels; `0` derives it from the shell's bar tokens, which is
 right for the stock bar and may need adjusting for a third-party one.
+`logoPath` overrides the distribution logo shown beside the transport controls;
+left empty, it is derived from `/etc/os-release`.
+
+## The player
+
+Below the results is what is playing now: title, artist and album, transport
+controls, a seekable progress bar, and the artwork as a spinning record. It
+reads `/v1/me/player` every five seconds while the overlay is open — never while
+it is closed — and interpolates the position locally in between, so the bar
+moves smoothly without polling harder.
+
+The record spins only while playback is running and holds its angle when paused.
+Controls act on whichever Connect device Spotify already considers active.
 
 ## What it stores
 
-`~/.local/state/quickspot/` holds `oauth.json` (your refresh token) and
-`history.json` (your recent searches). Nothing else is written and nothing
-leaves your machine except requests to Spotify.
+`~/.local/state/quickspot/` holds `oauth.json`, your refresh token. Nothing
+else is written and nothing leaves your machine except requests to Spotify.
 
 ## Development
 

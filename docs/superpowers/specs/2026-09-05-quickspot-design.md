@@ -349,3 +349,45 @@ continuously, so `main` is always at a state where the test suite passes.
   0.3.1, but calling it against the librespot daemon has never been exercised
   end to end — no session has invoked it against a running daemon and observed
   the result. This remains open for the user's first run to confirm.
+
+---
+
+## Addendum — 2026-09-06: now-playing panel
+
+Recent searches are removed entirely: `Recent.js`, its tests, `history.json` and
+the empty-state list. The empty state is now simply an empty results area of
+fixed height.
+
+Added below the results, always visible once signed in:
+
+- Track name, artists and album.
+- Transport: previous, play/pause, next.
+- A seekable progress bar. Dragging shows the position under the cursor and
+  commits on release, so it does not fight the interpolated position.
+- The artwork rendered as a record — grooves, spindle hole, clockwise rotation
+  at eight seconds per revolution. It pauses in place rather than resetting.
+- The distribution's logo, derived from `/etc/os-release` and overridable with
+  the `logoPath` setting.
+
+**Playback state comes from the Web API, not MPRIS.** `/v1/me/player` is polled
+every five seconds while the overlay is open and never while it is closed;
+position is interpolated locally between polls at 250ms so the bar moves
+smoothly. MPRIS was rejected as the source because it only sees a local player,
+and the existing design already targets whichever Connect device is active —
+with playback on a phone, an MPRIS-backed panel would sit empty. A hybrid was
+rejected as two code paths for one panel.
+
+Transport commands are followed by a settling poll 400ms later, because Spotify
+applies them asynchronously and an immediate poll returns the pre-command state.
+Play/pause additionally flips its own icon optimistically, which the settling
+poll corrects if the request failed.
+
+No new OAuth scopes: reading playback state and seeking both fall under the
+`user-read-playback-state` and `user-modify-playback-state` already granted.
+
+### Correction to the original spec
+
+The spec recorded a search limit of 20. Spotify's documented maximum of 50 only
+applies to apps that have passed extended-quota review; a development-mode app
+rejects anything above 10 with `400 Invalid limit`. Verified against the live
+API. `Api.MAX_SEARCH_LIMIT` is now 10.

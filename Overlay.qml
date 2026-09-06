@@ -1,13 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import Quickshell.Wayland
 
 import qs.Commons
 import qs.Ui
-
-import "Recent.js" as Recent
 
 Item {
   id: root
@@ -33,15 +30,16 @@ Item {
   property bool opened: false
   readonly property bool needsClientId: service ? service.clientId === "" : true
   readonly property bool needsLogin: service ? (!service.authorized && !needsClientId) : false
+  readonly property bool ready: !needsClientId && !needsLogin
 
   property var rows: []
-  property var history: []
   property int selectedIndex: 0
   property string statusText: ""
-  readonly property bool showingHistory: field.text.trim() === "" && rows.length === 0
-  // The length of whichever list Up/Down/Tab currently navigate, so those
-  // handlers never clamp against the wrong (possibly empty) list.
-  readonly property int activeCount: showingHistory ? history.length : rows.length
+
+  // The results area keeps its height whether or not it holds anything, so the
+  // card never resizes under the pointer as you type and the player below it
+  // stays put.
+  readonly property int resultsHeight: 320
 
   function runSearch(query) {
     // A response for a stale query must not write state after the overlay
@@ -57,18 +55,8 @@ Item {
     })
   }
 
-  function rememberQuery(query) {
-    history = Recent.insert(history, query, Recent.CAP)
-    historyStore.setText(Recent.serialize(history))
-  }
-
   function submit(modifiers) {
     if (needsLogin) { service.beginLogin(); return }
-
-    if (showingHistory) {
-      if (history.length > 0) field.text = history[selectedIndex] || history[0]
-      return
-    }
     if (modifiers & Qt.ControlModifier) act(function(row, done) { root.service.queueTrack(row, done) })
     else if (modifiers & Qt.ShiftModifier) act(function(row, done) { root.service.playAlbum(row, done) })
     else act(function(row, done) { root.service.playTrack(row, done) })
@@ -77,7 +65,6 @@ Item {
   function act(handler) {
     if (!service || selectedIndex < 0 || selectedIndex >= rows.length) return
     var row = rows[selectedIndex]
-    rememberQuery(field.text)
     handler(row, function(error) {
       if (error === "") root.close()
       else root.statusText = error
@@ -108,6 +95,9 @@ Item {
     rows = []
     selectedIndex = 0
     statusText = ""
+    // Polling runs only while the overlay is on screen, so a closed overlay
+    // costs no API quota.
+    if (service) service.watchPlayback()
     // Wayland layer-surface mapping is asynchronous: forcing focus in the
     // same tick as flipping `opened` would target a child of a window that
     // is not mapped yet. Defer to the next event loop turn, and focus
@@ -129,7 +119,10 @@ Item {
     // goes false. `runSearch`'s own `opened` guard is a second line of
     // defence for a request already in flight when close() runs.
     debounce.stop()
-    if (service) service.cancelSearch()
+    if (service) {
+      service.cancelSearch()
+      service.unwatchPlayback()
+    }
     // Keep the surface mapped so the exit animation is visible, then hide it
     // shortly after the 150ms exit animation would have finished. Guarded so
     // a re-open during the exit cancels the pending hide.
@@ -154,12 +147,6 @@ Item {
     id: debounce
     interval: 180
     onTriggered: root.runSearch(field.text)
-  }
-
-  FileView {
-    id: historyStore
-    path: Quickshell.env("HOME") + "/.local/state/quickspot/history.json"
-    onLoaded: root.history = Recent.sanitize(text())
   }
 
   PanelWindow {
@@ -224,8 +211,8 @@ Item {
         NumberAnimation { duration: root.opened ? 200 : 150; easing.type: Easing.OutCubic }
       }
 
-      // Height changes as results arrive. Animating it separately keeps the
-      // list growing from reading as a second entrance.
+      // The results area is a fixed height, so this only animates between the
+      // first-run client-ID form and the normal layout.
       Behavior on height {
         NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
       }
@@ -253,16 +240,13 @@ Item {
             debounce.restart()
           }
 
-          // Clamped against activeCount (results OR history, whichever is
-          // showing) so Down/Tab cannot pin selectedIndex to -1 when rows is
-          // empty but history is what's actually on screen.
           Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 1)
-          Keys.onDownPressed: root.selectedIndex = root.activeCount === 0
+          Keys.onDownPressed: root.selectedIndex = root.rows.length === 0
             ? 0
-            : Math.min(root.activeCount - 1, root.selectedIndex + 1)
-          Keys.onTabPressed: root.selectedIndex = root.activeCount === 0
+            : Math.min(root.rows.length - 1, root.selectedIndex + 1)
+          Keys.onTabPressed: root.selectedIndex = root.rows.length === 0
             ? 0
-            : (root.selectedIndex + 1) % root.activeCount
+            : (root.selectedIndex + 1) % root.rows.length
 
           // Both handlers delegate to root.submit(): an attached signal handler
           // cannot be invoked as a function, so the shared body lives on the root.
@@ -312,12 +296,19 @@ Item {
         ListView {
           id: list
           Layout.fillWidth: true
-          Layout.preferredHeight: Math.min(contentHeight, 320)
-          visible: root.rows.length > 0
+          Layout.preferredHeight: root.resultsHeight
+          visible: !root.needsClientId
           clip: true
           interactive: contentHeight > height
           currentIndex: root.selectedIndex
           model: root.rows
+
+          // Keeps the keyboard selection on screen once the list is longer
+          // than the visible area.
+          highlightFollowsCurrentItem: true
+          highlightMoveDuration: 120
+          preferredHighlightBegin: 0
+          preferredHighlightEnd: height
 
           delegate: TrackRow {
             required property int index
@@ -332,40 +323,6 @@ Item {
                 root.selectedIndex = index
                 root.act(function(row, done) { root.service.playTrack(row, done) })
               }
-            }
-          }
-        }
-
-        ListView {
-          Layout.fillWidth: true
-          Layout.preferredHeight: Math.min(contentHeight, 240)
-          visible: root.showingHistory && root.history.length > 0 && !root.needsClientId && !root.needsLogin
-          clip: true
-          model: root.history
-
-          delegate: Rectangle {
-            id: historyRow
-            required property int index
-            required property string modelData
-            width: parent ? parent.width : 0
-            height: 28
-            radius: Style.cornerRadius
-            color: index === root.selectedIndex ? Color.menu.selectedBackground : "transparent"
-
-            Text {
-              anchors.fill: parent
-              verticalAlignment: Text.AlignVCenter
-              leftPadding: Style.space(8)
-              elide: Text.ElideRight
-              opacity: historyRow.index === root.selectedIndex ? 1.0 : 0.7
-              color: historyRow.index === root.selectedIndex ? Color.menu.selectedText : Color.menu.text
-              font.pixelSize: Style.font.body
-              text: historyRow.modelData
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              onClicked: field.text = historyRow.modelData
             }
           }
         }
@@ -388,6 +345,23 @@ Item {
           color: Color.menu.text
           font.pixelSize: Style.font.bodySmall
           text: "↵ play    Ctrl+↵ queue    Shift+↵ album"
+        }
+
+        Rectangle {
+          Layout.fillWidth: true
+          Layout.topMargin: Style.space(4)
+          visible: root.ready
+          implicitHeight: 1
+          color: Color.menu.border
+          opacity: 0.4
+        }
+
+        PlayerPanel {
+          Layout.fillWidth: true
+          Layout.topMargin: Style.space(4)
+          visible: root.ready
+          service: root.service
+          onFailed: function(message) { root.statusText = message }
         }
       }
     }

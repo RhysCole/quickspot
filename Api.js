@@ -31,6 +31,25 @@ function queueUrl(trackUri, deviceId) {
   return url
 }
 
+function playerUrl() {
+  return BASE + "/me/player"
+}
+
+// Every transport verb takes the same optional device_id, so they share one
+// builder. `verb` is the path segment: play, pause, next, previous or seek.
+function transportUrl(verb, deviceId, extraQuery) {
+  var url = BASE + "/me/player/" + verb
+  var query = extraQuery ? [extraQuery] : []
+  if (deviceId) query.push("device_id=" + encodeURIComponent(deviceId))
+  if (query.length > 0) url += "?" + query.join("&")
+  return url
+}
+
+function seekUrl(positionMs, deviceId) {
+  var position = Math.max(0, Math.round(Number(positionMs) || 0))
+  return transportUrl("seek", deviceId, "position_ms=" + position)
+}
+
 function playTrackBody(trackUri) {
   return JSON.stringify({ uris: [trackUri] })
 }

@@ -6,6 +6,7 @@ import Quickshell.Services.Mpris
 import "Auth.js" as Auth
 import "Api.js" as Api
 import "Search.js" as Search
+import "Player.js" as Player
 
 QtObject {
   id: root
@@ -34,6 +35,16 @@ QtObject {
 
   readonly property bool authorized: refreshToken !== ""
   readonly property string statePath: Quickshell.env("HOME") + "/.local/state/quickspot"
+
+  // What is playing right now, refreshed by `playbackPoll` while the overlay
+  // is open. Shape is Player.emptyState(); `ok` false means nothing is playing.
+  property var playback: Player.emptyState()
+  // Interpolated locally between polls so the seek bar moves at frame rate
+  // instead of stepping once every POLL_MS.
+  property double playbackProgressMs: 0
+  property int playbackWatchers: 0
+  property var osRelease: ""
+  readonly property var logoCandidates: Player.logoCandidates(osRelease, settings.logoPath)
 
   property string pkceVerifier: ""
   property string oauthState: ""
@@ -323,5 +334,119 @@ QtObject {
       root.sendPlayback("PUT", Api.playUrl(deviceId),
         Api.playAlbumBody(row.albumUri, row.uri), token, callback)
     }, callback)
+  }
+
+  // ---------------------------------------------------------- playback
+
+  // The overlay calls these on open/close. Polling only runs while something
+  // is watching, so a closed overlay costs no API quota and no wakeups.
+  function watchPlayback() {
+    playbackWatchers++
+    if (playbackWatchers === 1) {
+      pollPlayback()
+      playbackPoll.start()
+      progressTick.start()
+    }
+  }
+
+  function unwatchPlayback() {
+    playbackWatchers = Math.max(0, playbackWatchers - 1)
+    if (playbackWatchers === 0) {
+      playbackPoll.stop()
+      progressTick.stop()
+    }
+  }
+
+  function pollPlayback() {
+    if (refreshToken === "") return
+    withToken(function(token, error) {
+      if (error) return
+      var request = new XMLHttpRequest()
+      request.open("GET", Api.playerUrl())
+      request.setRequestHeader("Authorization", "Bearer " + token)
+      request.onreadystatechange = function() {
+        if (request.readyState !== XMLHttpRequest.DONE) return
+        // 204 is the documented answer when nothing is playing anywhere.
+        if (request.status === 204) { root.applyPlayback(Player.emptyState()); return }
+        if (request.status !== 200) {
+          var classified = Api.classifyError(request.status, request.responseText)
+          if (classified.kind === "unauthorized") root.clearAuth("Spotify sign-in expired, sign in again")
+          return
+        }
+        root.applyPlayback(Player.parseState(request.responseText))
+      }
+      request.send()
+    })
+  }
+
+  function applyPlayback(state) {
+    playback = state
+    playbackProgressMs = state.progressMs
+  }
+
+  // Transport verbs share a shape: act on the device Spotify already considers
+  // active, then re-poll straight away so the UI reflects the change without
+  // waiting out the poll interval.
+  function sendTransport(method, url, callback) {
+    withToken(function(token, error) {
+      if (error) { callback(error); return }
+      root.sendPlayback(method, url, "", token, function(sendError) {
+        callback(sendError)
+        if (sendError === "") transportSettle.restart()
+      })
+    })
+  }
+
+  function togglePlay(callback) {
+    var verb = playback.playing ? "pause" : "play"
+    // Optimistic: flip the icon now rather than after the round trip, and let
+    // the settle poll correct it if the request turned out to fail.
+    var next = playback
+    next.playing = !playback.playing
+    playback = next
+    sendTransport("PUT", Api.transportUrl(verb, playback.deviceId, ""), callback)
+  }
+
+  function nextTrack(callback) {
+    sendTransport("POST", Api.transportUrl("next", playback.deviceId, ""), callback)
+  }
+
+  function previousTrack(callback) {
+    sendTransport("POST", Api.transportUrl("previous", playback.deviceId, ""), callback)
+  }
+
+  function seekTo(positionMs, callback) {
+    playbackProgressMs = positionMs
+    sendTransport("PUT", Api.seekUrl(positionMs, playback.deviceId), callback)
+  }
+
+  property Timer playbackPoll: Timer {
+    interval: Player.POLL_MS
+    repeat: true
+    onTriggered: root.pollPlayback()
+  }
+
+  // Spotify applies a transport command asynchronously: polling in the same
+  // instant usually returns the pre-command state. A short delay makes the
+  // confirming poll land after the change has taken effect.
+  property Timer transportSettle: Timer {
+    interval: 400
+    repeat: false
+    onTriggered: root.pollPlayback()
+  }
+
+  property Timer progressTick: Timer {
+    interval: 250
+    repeat: true
+    onTriggered: {
+      if (!root.playback.ok || !root.playback.playing) return
+      root.playbackProgressMs = Player.advance(root.playbackProgressMs, interval,
+                                               root.playback.durationMs)
+    }
+  }
+
+  property FileView osReleaseFile: FileView {
+    path: "/etc/os-release"
+    onLoaded: root.osRelease = text()
   }
 }

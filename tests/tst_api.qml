@@ -14,6 +14,23 @@ TestCase {
     verify(url.indexOf("q=m83%20midnight%20%26%20city") !== -1)
   }
 
+  function test_playerUrl() {
+    compare(Api.playerUrl(), "https://api.spotify.com/v1/me/player")
+  }
+
+  function test_transportUrlAppendsDeviceOnlyWhenKnown() {
+    compare(Api.transportUrl("next", "", ""), "https://api.spotify.com/v1/me/player/next")
+    compare(Api.transportUrl("pause", "dev 1", ""),
+            "https://api.spotify.com/v1/me/player/pause?device_id=dev%201")
+  }
+
+  function test_seekUrlRoundsAndClampsPosition() {
+    compare(Api.seekUrl(1234.6, ""), "https://api.spotify.com/v1/me/player/seek?position_ms=1235")
+    compare(Api.seekUrl(-10, ""), "https://api.spotify.com/v1/me/player/seek?position_ms=0")
+    compare(Api.seekUrl(5000, "dev-1"),
+            "https://api.spotify.com/v1/me/player/seek?position_ms=5000&device_id=dev-1")
+  }
+
   function test_searchUrlClampsLimit() {
     verify(Api.searchUrl("x", 0).indexOf("limit=1") !== -1)
     verify(Api.searchUrl("x", 999).indexOf("limit=10") !== -1)
