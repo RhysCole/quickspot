@@ -7,7 +7,6 @@ import "Auth.js" as Auth
 import "Api.js" as Api
 import "Search.js" as Search
 import "Player.js" as Player
-import "Lyrics.js" as Lyrics
 
 QtObject {
   id: root
@@ -102,12 +101,6 @@ QtObject {
   // instead of stepping once every POLL_MS.
   property double playbackProgressMs: 0
   property int playbackWatchers: 0
-  // Timed lyric lines for the current track, empty when there are none. Looked
-  // up by name and artist rather than by any Spotify id, so it works for a
-  // browser playing YouTube as much as for Spotify.
-  property var lyrics: []
-  property string lyricsKey: ""
-
   // The next few tracks Spotify will play, read on the same cycle as playback.
   property var queue: []
   readonly property int queueLength: 5
@@ -446,7 +439,6 @@ QtObject {
     if (playbackWatchers === 1) {
       pollPlayback()
       pollQueue()
-      if (trackKey !== "" && lyricsKey !== trackKey) lyricsFetch.restart()
       playbackPoll.start()
       progressTick.start()
     }
@@ -509,62 +501,6 @@ QtObject {
       }
       request.send()
     })
-  }
-
-  // Identity of the track for lyric purposes. Name and artist are all LRCLIB
-  // matches on, so anything else changing must not trigger a refetch.
-  readonly property string trackKey: playback.ok
-    ? playback.trackName + "\u0000" + playback.artists : ""
-
-  onTrackKeyChanged: {
-    lyrics = []
-    lyricsKey = ""
-    if (trackKey !== "" && playbackWatchers > 0) lyricsFetch.restart()
-  }
-
-  // Only ever runs while the overlay is open, at most twice per track: the
-  // exact lookup, then a search when that returns no timed lyrics.
-  function fetchLyrics() {
-    var state = playback
-    if (!state.ok || state.trackName === "") return
-    var key = trackKey
-
-    lyricsRequest(Lyrics.lookupUrl(state.trackName, state.artists, state.albumName,
-                                   state.durationMs / 1000),
-                  key, Lyrics.parseResponse, function() {
-      // /api/get answers with a single record chosen by exact match, and that
-      // record often carries plain lyrics while another submission of the same
-      // song has timed ones. Search returns all of them.
-      root.lyricsRequest(Lyrics.searchUrl(state.trackName, state.artists), key,
-        function(body) { return Lyrics.parseSearch(body, state.durationMs / 1000) },
-        null)
-    })
-  }
-
-  function lyricsRequest(url, key, parse, onEmpty) {
-    var request = new XMLHttpRequest()
-    request.open("GET", url)
-    request.onreadystatechange = function() {
-      if (request.readyState !== XMLHttpRequest.DONE) return
-      // The track moved on while this was in flight.
-      if (key !== root.trackKey) return
-
-      var parsed = request.status === 200
-        ? parse(request.responseText)
-        : { ok: false, instrumental: false, lines: [] }
-
-      // An instrumental is a definite answer, not a miss worth searching over.
-      if (!parsed.ok && !parsed.instrumental && onEmpty) { onEmpty(); return }
-      root.lyrics = parsed.lines
-      root.lyricsKey = key
-    }
-    request.send()
-  }
-
-  property Timer lyricsFetch: Timer {
-    interval: 400
-    repeat: false
-    onTriggered: root.fetchLyrics()
   }
 
   function applyPlayback(state) {
@@ -639,10 +575,7 @@ QtObject {
   }
 
   property Timer progressTick: Timer {
-    // Fast enough that the lyric sweep moves word to word rather than in
-    // visible steps. Reading an MPRIS property is a local call and
-    // interpolating is arithmetic, so neither path minds the rate.
-    interval: 120
+    interval: 250
     repeat: true
     onTriggered: {
       if (!root.playback.ok || !root.playback.playing) return

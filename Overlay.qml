@@ -71,6 +71,16 @@ Item {
   // scrim) is the only way out, so a run of track changes does not mean
   // re-summoning the launcher between each one. The player below updates
   // itself, which is the confirmation that the action landed.
+  // Transport straight from the search field, so the overlay doubles as a
+  // remote without having to reach for the mouse or leave the field.
+  function transport(verb) {
+    if (!service || !ready) return
+    var done = function(error) { root.statusText = error }
+    if (verb === "toggle") service.togglePlay(done)
+    else if (verb === "next") service.nextTrack(done)
+    else if (verb === "previous") service.previousTrack(done)
+  }
+
   function act(handler) {
     if (!service || selectedIndex < 0 || selectedIndex >= rows.length) return
     var row = rows[selectedIndex]
@@ -274,13 +284,29 @@ Item {
             debounce.restart()
           }
 
-          Keys.onUpPressed: root.selectedIndex = Math.max(0, root.selectedIndex - 1)
-          Keys.onDownPressed: root.selectedIndex = root.rows.length === 0
-            ? 0
-            : Math.min(root.rows.length - 1, root.selectedIndex + 1)
+          // The arrows drive playback rather than the result list, and are
+          // accepted so they do not also move the text cursor. Tab and
+          // Shift+Tab move the selection instead — the launcher is used by
+          // typing and pressing Enter far more often than by walking a list.
+          Keys.onDownPressed: function(event) {
+            root.transport("toggle")
+            event.accepted = true
+          }
+          Keys.onLeftPressed: function(event) {
+            root.transport("previous")
+            event.accepted = true
+          }
+          Keys.onRightPressed: function(event) {
+            root.transport("next")
+            event.accepted = true
+          }
+
           Keys.onTabPressed: root.selectedIndex = root.rows.length === 0
             ? 0
             : (root.selectedIndex + 1) % root.rows.length
+          Keys.onBacktabPressed: root.selectedIndex = root.rows.length === 0
+            ? 0
+            : (root.selectedIndex + root.rows.length - 1) % root.rows.length
 
           // Both handlers delegate to root.submit(): an attached signal handler
           // cannot be invoked as a function, so the shared body lives on the root.
@@ -394,14 +420,33 @@ Item {
           text: root.statusText
         }
 
-        Text {
+        // Always on screen rather than only once results exist: the transport
+        // keys work with an empty field, so hiding them until you search would
+        // hide them exactly when they are most useful.
+        RowLayout {
           Layout.fillWidth: true
-          visible: root.rows.length > 0
-          horizontalAlignment: Text.AlignRight
-          opacity: 0.5
-          color: Color.menu.text
-          font.pixelSize: Style.font.bodySmall
-          text: "↵ play    Ctrl+↵ queue track    Shift+↵ album"
+          visible: root.ready
+          spacing: Style.space(12)
+
+          Text {
+            opacity: root.rows.length > 0 ? 0.5 : 0.25
+            color: Color.menu.text
+            font.pixelSize: Style.font.bodySmall
+            text: "↵ play    ⇥ select    Ctrl+↵ queue    Shift+↵ album"
+
+            Behavior on opacity {
+              NumberAnimation { duration: 200 }
+            }
+          }
+
+          Item { Layout.fillWidth: true }
+
+          Text {
+            opacity: 0.5
+            color: Color.menu.text
+            font.pixelSize: Style.font.bodySmall
+            text: "← prev    ↓ play/pause    → next    esc close"
+          }
         }
 
         Rectangle {

@@ -49,8 +49,17 @@ Then `hyprctl reload`.
 | `Enter` | Play the selected result — a track on its own, an album or playlist as a whole |
 | `Ctrl+Enter` | Add it to the queue (tracks only) |
 | `Shift+Enter` | Play its album, starting from it |
-| `Up` / `Down` / `Tab` | Move the selection |
+| `Tab` / `Shift+Tab` | Move the selection |
+| `Down` | Play / pause |
+| `Left` / `Right` | Previous / next track |
 | `Escape` | Dismiss |
+
+The arrows control playback rather than the result list, and work with the
+field empty — so the overlay is a remote as well as a launcher, without
+reaching for the mouse. The selection moves with `Tab` instead, since the
+launcher is used by typing and pressing Enter far more often than by walking a
+list. One consequence worth knowing: `Left` and `Right` no longer move the text
+cursor. `Home`, `End` and clicking still do.
 
 Acting on a result leaves the overlay open, so a run of track changes does not
 mean re-summoning the launcher between each one. Escape, or a click outside the
@@ -85,32 +94,6 @@ video with no previous track.
 When nothing is playing locally — the usual case being playback on a phone —
 the controls fall back to Spotify's Web API, which is the only way to reach a
 device that is not on this machine.
-
-## Lyrics
-
-When a track has timed lyrics, three lines show in the gap between the transport
-controls and the record: the line just gone, the line being sung, and the one
-coming. The current line lights word by word as it plays, and each new line
-rises into place rather than being swapped out. Tracks without timed lyrics show
-nothing at all — no placeholder, no reserved space.
-
-The word sweep is interpolated from each line's own span, weighted by word
-length. LRCLIB times lyrics per line and never per word — enhanced LRC with
-inline word tags does not appear in its data — so the sweep follows the singing
-closely without being the real vocal timing that Spotify has.
-
-Lyrics come from [LRCLIB](https://lrclib.net), which is free and needs no key.
-Spotify's own lyrics are not in the Web API; the client reads them from a
-private endpoint requiring a different token, so an account does not help.
-
-Only synced lyrics are used. Unsynced text is a wall of words with no way to
-know which line is current, and showing the wrong line is worse than showing
-none.
-
-**This sends the track and artist name to `lrclib.net`** while the overlay is
-open — one request per track, a second when the first record has no timed
-lyrics, and none when it is closed. It is
-the only third party QuickSpot talks to besides Spotify.
 
 ## Where it plays
 

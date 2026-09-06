@@ -104,16 +104,7 @@ Item {
           onActivated: root.act(function(done) { root.service.nextTrack(done) })
         }
 
-        // Sits between the controls and the record, which is the only empty
-        // space on the panel and reads as the natural place for it.
-        LyricsStrip {
-          Layout.fillWidth: true
-          Layout.leftMargin: Style.space(6)
-          Layout.alignment: Qt.AlignVCenter
-          lines: root.service ? root.service.lyrics : []
-          positionMs: root.progressMs
-          accent: root.accent
-        }
+        Item { Layout.fillWidth: true }
       }
 
       SeekBar {
