@@ -35,6 +35,27 @@ Item {
     duration: 8000
   }
 
+  // Sits under the disc rather than rotating with it, so the record reads as
+  // resting on the card instead of floating flat against it. Concentric rings
+  // rather than a real blur: this is static, and a MultiEffect here would mean
+  // re-layering a spinning item every frame.
+  Repeater {
+    model: 5
+
+    Rectangle {
+      required property int index
+
+      anchors.centerIn: parent
+      anchors.verticalCenterOffset: 2
+      width: root.size + index * 3
+      height: width
+      radius: width / 2
+      color: "transparent"
+      border.width: 1
+      border.color: Qt.rgba(0, 0, 0, 0.11 - index * 0.02)
+    }
+  }
+
   Item {
     id: disc
     anchors.fill: parent

@@ -276,6 +276,16 @@ Item {
           visible: !root.needsClientId
           color: Color.menu.background
           radius: Style.cornerRadius
+          // Picks up the album's colour when focused, which ties the one
+          // opaque element on the card back to the rest of it.
+          border.width: 1
+          border.color: field.activeFocus
+            ? Qt.rgba(palette.accent.r, palette.accent.g, palette.accent.b, 0.45)
+            : Qt.rgba(0, 0, 0, 0)
+
+          Behavior on border.color {
+            ColorAnimation { duration: 160 }
+          }
 
         TextField {
           id: field
@@ -384,6 +394,20 @@ Item {
             currentIndex: root.selectedIndex
             model: root.rows
 
+            // The results area holds three rows whether or not anything is in
+            // them, so an empty one needs to look deliberate rather than
+            // broken.
+            Text {
+              anchors.centerIn: parent
+              visible: root.rows.length === 0 && root.statusText === ""
+              opacity: 0.3
+              color: Color.menu.text
+              font.pixelSize: Style.font.bodySmall
+              text: root.needsLogin
+                ? "Press Enter to sign in"
+                : "Search tracks, albums and playlists"
+            }
+
             // Keeps the keyboard selection on screen once the list is longer
             // than the visible area.
             highlightFollowsCurrentItem: true
@@ -396,6 +420,7 @@ Item {
               required property var modelData
               width: list.width
               row: modelData
+              accent: palette.accent
               selected: index === root.selectedIndex
 
               MouseArea {

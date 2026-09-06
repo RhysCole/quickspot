@@ -22,8 +22,8 @@ Item {
     Text {
       Layout.fillWidth: true
       Layout.bottomMargin: Style.space(2)
-      opacity: 0.45
-      color: Color.menu.text
+      opacity: 0.55
+      color: root.accent
       font.pixelSize: Style.font.caption
       text: "Up next"
     }
@@ -64,10 +64,10 @@ Item {
     Text {
       Layout.fillWidth: true
       visible: root.tracks.length === 0
-      opacity: 0.35
+      opacity: 0.3
       color: Color.menu.text
       font.pixelSize: Style.font.bodySmall
-      text: "Queue is empty"
+      text: "Nothing queued"
     }
 
     Item { Layout.fillHeight: true }
