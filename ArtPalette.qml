@@ -23,6 +23,12 @@ QtObject {
   readonly property var themeColors: [Color.accent, Color.menu.selectedText, Color.foreground]
   readonly property var colors: Palette.build(quantizer.colors, themeColors, count)
 
+  // The album colour to use for text and controls, guaranteed legible against
+  // the card. Falls back to the theme's accent when the sleeve offers nothing
+  // that can be made readable.
+  readonly property color accent:
+    Palette.readable(quantizer.colors, Color.menu.background, Color.menu.selectedText, 4.5)
+
   property Process fetch: Process {
     command: root.artworkUrl !== "" && root.localPath !== ""
       ? Palette.downloadCommand(root.artworkUrl, root.localPath)

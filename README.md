@@ -99,7 +99,10 @@ The record spins only while playback is running and holds its angle when paused.
 Controls act on whichever Connect device Spotify already considers active.
 
 Behind everything, four blurred blobs drift and pulse in the dominant colours of
-the current album art — a lava lamp tinted by what is playing. Artwork is cached
+the current album art — a lava lamp tinted by what is playing. The track title,
+the play button and the progress bar take the album's colour too, lifted in
+lightness until they are legible against the card so a dark sleeve cannot make
+the text unreadable. Artwork is cached
 under `~/.cache/quickspot/art/` and quantized locally; nothing about it is sent
 anywhere. When nothing is playing, or a sleeve yields no usable colours, the
 theme's own accent stands in.

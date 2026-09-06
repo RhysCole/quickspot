@@ -14,6 +14,8 @@ Item {
   id: root
 
   property var service: null
+  // The album's own colour, already checked for legibility by ArtPalette.
+  property color accent: Color.menu.selectedText
   readonly property var playback: service ? service.playback : Player.emptyState()
   readonly property double progressMs: service ? service.playbackProgressMs : 0
   readonly property real discSize: 170
@@ -42,7 +44,7 @@ Item {
       Text {
         Layout.fillWidth: true
         elide: Text.ElideRight
-        color: Color.menu.selectedText
+        color: root.accent
         font.pixelSize: Style.font.subtitle
         text: root.playback.ok ? root.playback.trackName : "Nothing playing"
       }
@@ -51,8 +53,8 @@ Item {
         Layout.fillWidth: true
         visible: root.playback.ok
         elide: Text.ElideRight
-        opacity: 0.75
-        color: Color.menu.text
+        opacity: 0.85
+        color: Qt.tint(Color.menu.text, Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.35))
         font.pixelSize: Style.font.bodySmall
         text: root.playback.artists
       }
@@ -72,12 +74,14 @@ Item {
         spacing: Style.space(10)
 
         TransportButton {
+          accent: root.accent
           glyph: "󰒮"      // nf-md-skip_previous
           enabled: root.playback.ok
           onActivated: root.act(function(done) { root.service.previousTrack(done) })
         }
 
         TransportButton {
+          accent: root.accent
           glyph: root.playback.playing ? "󰏤" : "󰐊"  // nf-md-pause / nf-md-play
           primary: true
           enabled: root.playback.ok
@@ -85,6 +89,7 @@ Item {
         }
 
         TransportButton {
+          accent: root.accent
           glyph: "󰒭"      // nf-md-skip_next
           enabled: root.playback.ok
           onActivated: root.act(function(done) { root.service.nextTrack(done) })
@@ -115,6 +120,7 @@ Item {
       SeekBar {
         Layout.fillWidth: true
         Layout.topMargin: Style.space(6)
+        accent: root.accent
         enabled: root.playback.ok && root.playback.durationMs > 0
         positionMs: root.progressMs
         durationMs: root.playback.durationMs

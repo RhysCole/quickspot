@@ -9,6 +9,7 @@ Rectangle {
 
   property string glyph: ""
   property bool primary: false
+  property color accent: Color.menu.selectedText
 
   signal activated()
 
@@ -17,7 +18,7 @@ Rectangle {
   radius: width / 2
 
   color: primary
-    ? Color.menu.selectedText
+    ? accent
     : (mouse.containsMouse ? Color.menu.selectedBackground : "transparent")
   opacity: enabled ? (mouse.containsMouse || primary ? 1.0 : 0.75) : 0.3
 

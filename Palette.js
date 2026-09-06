@@ -57,3 +57,59 @@ function build(quantized, fallback, count) {
   for (var j = 0; j < total; j++) out.push(kept[j % kept.length])
   return out
 }
+
+// --- readability -------------------------------------------------------
+
+// WCAG relative luminance, so contrast is judged the way a person perceives it
+// rather than by raw channel distance.
+function relativeLuminance(color) {
+  function channel(value) {
+    return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4)
+  }
+  return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b)
+}
+
+function contrastRatio(a, b) {
+  var la = relativeLuminance(a)
+  var lb = relativeLuminance(b)
+  var high = Math.max(la, lb)
+  var low = Math.min(la, lb)
+  return (high + 0.05) / (low + 0.05)
+}
+
+// Pushes a colour away from the background in lightness until it is legible,
+// keeping its hue so the result still reads as belonging to the album.
+function ensureContrast(color, background, minRatio, steps) {
+  var limit = Math.max(1, Number(steps) || 12)
+  var lighten = relativeLuminance(color) >= relativeLuminance(background)
+  var lightness = color.hslLightness
+  var current = color
+
+  for (var i = 0; i < limit; i++) {
+    if (contrastRatio(current, background) >= minRatio) return current
+    lightness = lighten ? Math.min(1, lightness + 0.06) : Math.max(0, lightness - 0.06)
+    current = Qt.hsla(color.hslHue, color.hslSaturation, lightness, color.a)
+  }
+  return current
+}
+
+// The album colour used for text and controls: whichever candidate already
+// stands out most against the card, then nudged until it is actually readable.
+// Falls back to the theme when the album offers nothing to work with.
+function readable(colors, background, fallback, minRatio) {
+  var target = Number(minRatio) || 4.5
+  var source = colors || []
+  var best = null
+  var bestRatio = 0
+
+  for (var i = 0; i < source.length; i++) {
+    var ratio = contrastRatio(source[i], background)
+    if (ratio > bestRatio) { bestRatio = ratio; best = source[i] }
+  }
+  if (best === null) return fallback
+
+  var adjusted = ensureContrast(best, background, target, 12)
+  // A hue that cannot be made legible without turning into near-white or
+  // near-black is worse than the theme's own accent.
+  return contrastRatio(adjusted, background) >= target ? adjusted : fallback
+}

@@ -61,4 +61,35 @@ TestCase {
   function test_buildReturnsNothingWithNoColoursAtAll() {
     compare(Palette.build([], [], 4).length, 0)
   }
+
+  function test_contrastRatioIsSymmetricAndBounded() {
+    var black = Qt.rgba(0, 0, 0, 1)
+    var white = Qt.rgba(1, 1, 1, 1)
+    compare(Math.round(Palette.contrastRatio(black, white)), 21)
+    compare(Palette.contrastRatio(black, white), Palette.contrastRatio(white, black))
+    compare(Palette.contrastRatio(white, white), 1)
+  }
+
+  function test_readableLiftsALowContrastAlbumColour() {
+    var background = Qt.rgba(0.06, 0.07, 0.08, 1)
+    // A dark blue that would be unreadable on a dark card.
+    var dim = Qt.hsla(0.6, 0.7, 0.18, 1)
+    var out = Palette.readable([dim], background, Qt.rgba(1, 0, 0, 1), 4.5)
+    verify(Palette.contrastRatio(out, background) >= 4.5)
+    // Hue is preserved, so the result still belongs to the album.
+    verify(Math.abs(out.hslHue - dim.hslHue) < 0.02)
+  }
+
+  function test_readableFallsBackWhenNothingWorks() {
+    var fallback = Qt.rgba(0.9, 0.9, 0.2, 1)
+    compare(Palette.readable([], Qt.rgba(0, 0, 0, 1), fallback, 4.5), fallback)
+  }
+
+  function test_readablePrefersTheHighestContrastCandidate() {
+    var background = Qt.rgba(0, 0, 0, 1)
+    var dim = Qt.hsla(0.6, 0.7, 0.12, 1)
+    var bright = Qt.hsla(0.1, 0.8, 0.7, 1)
+    var out = Palette.readable([dim, bright], background, Qt.rgba(1, 0, 0, 1), 4.5)
+    verify(Math.abs(out.hslHue - bright.hslHue) < 0.02)
+  }
 }

@@ -197,9 +197,24 @@ QtObject {
     onLoaded: {
       try {
         var stored = JSON.parse(text())
-        if (stored && stored.refresh_token) root.refreshToken = String(stored.refresh_token)
+        if (stored && stored.refresh_token) {
+          root.refreshToken = String(stored.refresh_token)
+          // Read the player once at startup so the first time the overlay is
+          // opened it already knows the track — and the background already has
+          // the album's colours — instead of showing the previous state until
+          // the first poll lands.
+          primePoll.start()
+        }
       } catch (e) {}
     }
+  }
+
+  // Delayed so the request does not compete with the rest of the shell coming
+  // up. One call per shell start; polling proper only runs with the overlay open.
+  property Timer primePoll: Timer {
+    interval: 2000
+    repeat: false
+    onTriggered: root.pollPlayback()
   }
 
   property QtObject refreshRequest: QtObject {

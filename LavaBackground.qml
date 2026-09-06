@@ -15,9 +15,11 @@ Item {
   // frame behind a hidden surface.
   property bool active: false
   property real cornerRadius: 0
-  property real intensity: 0.42
+  property real intensity: 0.34
 
-  readonly property real blobSize: Math.max(width, height) * 0.85
+  // Sized off the card's height, not its width: a blob scaled to a 640px-wide
+  // card washes the whole surface in one colour.
+  readonly property real blobSize: Math.max(80, height * 0.75)
 
   Item {
     id: blobs
@@ -102,15 +104,24 @@ Item {
     layer.enabled: true
   }
 
+  // MultiEffect grows its painted area beyond its own geometry to fit the blur
+  // unless told not to. Inside a fullscreen layer surface that spills the tint
+  // across the entire screen, so padding is off and the result is clipped as
+  // well. The shell's own LockView does the same thing for the same reason.
+  Item {
+    anchors.fill: parent
+    clip: true
+
   MultiEffect {
     anchors.fill: parent
+    autoPaddingEnabled: false
     source: blobs
     // A blur wide enough that the blobs read as one flowing field rather than
     // as four circles.
     blurEnabled: true
     blur: 1.0
-    blurMax: 64
-    blurMultiplier: 1.5
+    blurMax: 48
+    blurMultiplier: 1.0
     maskEnabled: true
     maskSource: mask
     opacity: root.colors.length > 0 ? root.intensity : 0
@@ -118,5 +129,6 @@ Item {
     Behavior on opacity {
       NumberAnimation { duration: 400 }
     }
+  }
   }
 }

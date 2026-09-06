@@ -380,6 +380,7 @@ Item {
           Layout.topMargin: Style.space(4)
           visible: root.ready
           service: root.service
+          accent: palette.accent
           onFailed: function(message) { root.statusText = message }
         }
       }

@@ -11,6 +11,7 @@ import "Player.js" as Player
 Item {
   id: root
 
+  property color accent: Color.menu.selectedText
   property double positionMs: 0
   property double durationMs: 0
 
@@ -46,7 +47,7 @@ Item {
           width: Math.max(0, Math.min(parent.width, parent.width * root.shownFraction))
           height: parent.height
           radius: parent.radius
-          color: Color.menu.selectedText
+          color: root.accent
         }
       }
 
@@ -55,7 +56,7 @@ Item {
         width: 10
         height: 10
         radius: width / 2
-        color: Color.menu.selectedText
+        color: root.accent
         visible: root.enabled
         opacity: seekArea.containsMouse || root.dragging ? 1 : 0
         anchors.verticalCenter: parent.verticalCenter
