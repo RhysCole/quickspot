@@ -66,12 +66,16 @@ Item {
     else act(function(row, done) { root.service.playTrack(row, done) })
   }
 
+  // Acting on a result leaves the overlay open: Escape (or a click on the
+  // scrim) is the only way out, so a run of track changes does not mean
+  // re-summoning the launcher between each one. The player below updates
+  // itself, which is the confirmation that the action landed.
   function act(handler) {
     if (!service || selectedIndex < 0 || selectedIndex >= rows.length) return
     var row = rows[selectedIndex]
     handler(row, function(error) {
-      if (error === "") root.close()
-      else root.statusText = error
+      root.statusText = error
+      if (error === "" && root.service) root.service.refreshPlayback()
     })
   }
 

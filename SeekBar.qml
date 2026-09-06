@@ -104,7 +104,7 @@ Item {
       Text {
         opacity: 0.6
         color: Color.menu.text
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Style.font.bodySmall
         text: Player.formatTime(root.shownFraction * root.durationMs)
       }
 
@@ -113,7 +113,7 @@ Item {
       Text {
         opacity: 0.6
         color: Color.menu.text
-        font.pixelSize: Style.font.caption
+        font.pixelSize: Style.font.bodySmall
         text: Player.formatTime(root.durationMs)
       }
     }

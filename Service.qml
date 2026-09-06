@@ -43,9 +43,6 @@ QtObject {
   // instead of stepping once every POLL_MS.
   property double playbackProgressMs: 0
   property int playbackWatchers: 0
-  property var osRelease: ""
-  readonly property var logoCandidates: Player.logoCandidates(osRelease, settings.logoPath)
-
   property string pkceVerifier: ""
   property string oauthState: ""
   property var tokenWaiters: []
@@ -372,6 +369,13 @@ QtObject {
     }
   }
 
+  // Asks for the player state shortly from now. Used after an action that
+  // changes what is playing: Spotify applies those asynchronously, so polling
+  // in the same instant returns the state from before the command.
+  function refreshPlayback() {
+    transportSettle.restart()
+  }
+
   function pollPlayback() {
     if (refreshToken === "") return
     withToken(function(token, error) {
@@ -460,8 +464,4 @@ QtObject {
     }
   }
 
-  property FileView osReleaseFile: FileView {
-    path: "/etc/os-release"
-    onLoaded: root.osRelease = text()
-  }
 }

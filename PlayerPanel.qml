@@ -8,8 +8,8 @@ import qs.Commons
 import "Player.js" as Player
 
 // The now-playing strip along the bottom of the overlay: metadata and transport
-// on the left, the spinning record on the right, the distribution's logo tucked
-// under it. Purely a view — every action is delegated back to the service.
+// on the left, the spinning record on the right. Purely a view — every action
+// is delegated back to the service.
 Item {
   id: root
 
@@ -45,7 +45,7 @@ Item {
         Layout.fillWidth: true
         elide: Text.ElideRight
         color: root.accent
-        font.pixelSize: Style.font.subtitle
+        font.pixelSize: Style.font.heading
         text: root.playback.ok ? root.playback.trackName : "Nothing playing"
       }
 
@@ -55,7 +55,7 @@ Item {
         elide: Text.ElideRight
         opacity: 0.85
         color: Qt.tint(Color.menu.text, Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.35))
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Style.font.subtitle
         text: root.playback.artists
       }
 
@@ -65,7 +65,7 @@ Item {
         elide: Text.ElideRight
         opacity: 0.5
         color: Color.menu.text
-        font.pixelSize: Style.font.bodySmall
+        font.pixelSize: Style.font.body
         text: root.playback.albumName
       }
 
@@ -96,25 +96,6 @@ Item {
         }
 
         Item { Layout.fillWidth: true }
-
-        Image {
-          id: logo
-          property int candidate: 0
-
-          Layout.alignment: Qt.AlignVCenter
-          source: root.service && root.service.logoCandidates.length > candidate
-            ? "file://" + root.service.logoCandidates[candidate]
-            : ""
-          sourceSize.height: 22
-          fillMode: Image.PreserveAspectFit
-          opacity: 0.65
-          // Walk the candidate list until one of them actually exists on this
-          // machine; Player.logoCandidates ends in a path Omarchy always ships.
-          onStatusChanged: {
-            if (status === Image.Error && root.service
-                && candidate < root.service.logoCandidates.length - 1) candidate++
-          }
-        }
       }
 
       SeekBar {

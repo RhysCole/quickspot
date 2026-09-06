@@ -52,6 +52,10 @@ Then `hyprctl reload`.
 | `Up` / `Down` / `Tab` | Move the selection |
 | `Escape` | Dismiss |
 
+Acting on a result leaves the overlay open, so a run of track changes does not
+mean re-summoning the launcher between each one. Escape, or a click outside the
+card, is the only way out.
+
 The results area starts at nothing and grows a row at a time as results arrive,
 up to three. The rest stay reachable by scrolling.
 
@@ -75,8 +79,7 @@ none. Settings live in the `plugins` array of `~/.config/omarchy/shell.json`:
   "id": "io.github.rhyscole.quickspot",
   "clientId": "your client id",
   "redirectPort": 8788,
-  "topMargin": 0,
-  "logoPath": ""
+  "topMargin": 0
 }
 ```
 
@@ -84,8 +87,6 @@ none. Settings live in the `plugins` array of `~/.config/omarchy/shell.json`:
 the redirect URI registered in your Spotify dashboard. `topMargin` is the gap
 below the bar in pixels; `0` derives it from the shell's bar tokens, which is
 right for the stock bar and may need adjusting for a third-party one.
-`logoPath` overrides the distribution logo shown beside the transport controls;
-left empty, it is derived from `/etc/os-release`.
 
 ## The player
 

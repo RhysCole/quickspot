@@ -6,45 +6,6 @@ import "../Player.js" as Player
 TestCase {
   name: "Player"
 
-  readonly property string osRelease:
-    'NAME="Omarchy"\n' +
-    'ID=omarchy\n' +
-    'ID_LIKE=arch\n' +
-    '# a comment\n' +
-    'LOGO=omarchy\n'
-
-  function test_parseOsReleaseStripsQuotesAndComments() {
-    var fields = Player.parseOsRelease(osRelease)
-    compare(fields.NAME, "Omarchy")
-    compare(fields.ID, "omarchy")
-    compare(fields.ID_LIKE, "arch")
-    compare(fields.LOGO, "omarchy")
-  }
-
-  function test_parseOsReleaseTakesFirstIdLike() {
-    // ID_LIKE is a space-separated list; only the first entry is usable as a
-    // logo basename.
-    var fields = Player.parseOsRelease("ID_LIKE=\"arch debian\"\n")
-    compare(fields.ID_LIKE, "arch")
-  }
-
-  function test_parseOsReleaseSurvivesGarbage() {
-    var fields = Player.parseOsRelease("no-equals-sign\n=leading\n\n")
-    compare(Object.keys(fields).length, 0)
-  }
-
-  function test_logoCandidatesPrefersOverrideThenDerivative() {
-    var candidates = Player.logoCandidates(osRelease, "/tmp/mine.svg")
-    compare(candidates[0], "/tmp/mine.svg")
-    compare(candidates[1], "/usr/share/pixmaps/archlinux-logo.svg")
-    verify(candidates.indexOf("/usr/share/pixmaps/omarchy-logo.svg") !== -1)
-  }
-
-  function test_logoCandidatesAlwaysEndInAShippedPath() {
-    var candidates = Player.logoCandidates("", "")
-    compare(candidates[candidates.length - 1], "/usr/share/omarchy/logo.svg")
-  }
-
   function test_parseStateReadsATrack() {
     var body = JSON.stringify({
       is_playing: true,

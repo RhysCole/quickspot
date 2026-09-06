@@ -48,14 +48,15 @@ Item {
       border.color: Qt.rgba(1, 1, 1, 0.08)
     }
 
-    // Grooves. Spacing widens slightly toward the rim, which is what makes a
-    // still frame read as vinyl rather than as a dark circle.
+    // Grooves, confined to the rim the label leaves visible. Spacing widens
+    // slightly outward, which is what makes a still frame read as vinyl rather
+    // than as a dark circle.
     Repeater {
-      model: 8
+      model: 5
 
       Rectangle {
         required property int index
-        readonly property real inset: root.size * (0.055 + index * 0.026)
+        readonly property real inset: root.size * (0.028 + index * 0.013)
 
         anchors.centerIn: parent
         width: root.size - inset * 2
@@ -72,7 +73,8 @@ Item {
     Item {
       id: label
       anchors.centerIn: parent
-      width: root.size * 0.52
+      // Nearly fills the record: the sleeve is the point, the vinyl is framing.
+      width: root.size * 0.82
       height: width
 
       Image {
@@ -118,7 +120,7 @@ Item {
 
     Rectangle {
       anchors.centerIn: parent
-      width: root.size * 0.075
+      width: root.size * 0.06
       height: width
       radius: width / 2
       color: root.holeColor
