@@ -239,6 +239,16 @@ blob that happens to drift under it.
 `~/.local/state/quickspot/` holds `oauth.json`, your refresh token. Nothing
 else is written and nothing leaves your machine except requests to Spotify.
 
+The refresh token is a long-lived account credential, so it is not left to the
+umask: the directory is forced to `0700` and the file written atomically as
+`0600`, through a helper that takes the token on stdin rather than as an
+argument — argv is readable by any process on the machine through `/proc`. A
+token written by an earlier version has its permissions repaired at startup.
+
+The access token is never written to disk at all, and the client secret is never
+involved: sign-in uses PKCE, which is designed for clients that cannot keep
+one.
+
 ## Development
 
 ```bash

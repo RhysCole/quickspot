@@ -52,6 +52,9 @@ QtObject {
 
   readonly property bool authorized: refreshToken !== ""
   readonly property string statePath: Quickshell.env("HOME") + "/.local/state/quickspot"
+  readonly property string tokenPath: statePath + "/oauth.json"
+  readonly property string tokenScript:
+    Qt.resolvedUrl("scripts/store-token.sh").toString().replace("file://", "")
 
   // What Spotify's Web API last said was playing. Only used when there is no
   // local media player to read instead.
@@ -233,7 +236,7 @@ QtObject {
     accessTokenExpiresAt = parsed.expiresAt
     if (parsed.refreshToken !== "") {
       refreshToken = parsed.refreshToken
-      tokenStore.setText(JSON.stringify({ refresh_token: refreshToken }))
+      persistToken(JSON.stringify({ refresh_token: refreshToken }))
     }
     authError = ""
     finishWaiters(accessToken, "")
@@ -243,7 +246,7 @@ QtObject {
     accessToken = ""
     accessTokenExpiresAt = 0
     refreshToken = ""
-    tokenStore.setText(JSON.stringify({}))
+    persistToken(JSON.stringify({}))
     authError = message
     finishWaiters("", message)
   }
@@ -271,8 +274,44 @@ QtObject {
     }
   }
 
+  // The refresh token is a long-lived account credential, so it is written by a
+  // helper that forces the state directory to 0700 and the file to 0600 rather
+  // than inheriting whatever the umask happened to be. FileView has no way to
+  // set a mode, which is why this does not go through it.
+  //
+  // The token travels on stdin, never in the command: argv is readable by every
+  // process on the machine through /proc, which would undo the file mode
+  // completely.
+  function persistToken(json) {
+    tokenWriter.running = false
+    tokenWriter.command = [tokenScript, "write", tokenPath]
+    tokenWriter.running = true
+    tokenWriter.write(json)
+    // Closing stdin is what tells the helper the token is complete; without it
+    // `cat` blocks and the file is never replaced.
+    tokenWriter.stdinEnabled = false
+  }
+
+  property Process tokenWriter: Process {
+    stdinEnabled: true
+    onExited: function(exitCode) {
+      // Restored for the next write, which reopens the pipe.
+      stdinEnabled = true
+      if (exitCode !== 0)
+        console.warn("quickspot: could not store the refresh token, exit", exitCode)
+    }
+  }
+
+  // Repairs a token written by a version of this plugin that left the mode to
+  // the umask. Runs once at startup and costs nothing when the file is already
+  // correct or absent.
+  property Process tokenSecurer: Process {
+    command: [root.tokenScript, "secure", root.tokenPath]
+    running: true
+  }
+
   property FileView tokenStore: FileView {
-    path: root.statePath + "/oauth.json"
+    path: root.tokenPath
     onLoaded: {
       try {
         var stored = JSON.parse(text())
